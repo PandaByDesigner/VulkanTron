@@ -18,6 +18,26 @@ static Sound::SourceSample *sample_recognizer = NULL;
 static Sound::Source3D *players[PLAYERS];
 static Sound::Source3D *recognizerEngine;
 
+namespace {
+  class ScopedAudioLock {
+  public:
+    explicit ScopedAudioLock(Sound::System *system) : _system(system) {
+      if(_system)
+        _system->Lock();
+    }
+
+    ~ScopedAudioLock() {
+      if(_system)
+        _system->Unlock();
+    }
+
+  private:
+    ScopedAudioLock(const ScopedAudioLock&);
+    ScopedAudioLock& operator=(const ScopedAudioLock&);
+    Sound::System *_system;
+  };
+}
+
 #define TURNLENGTH 250.0f
 
 static void output_decoders(void)
@@ -47,10 +67,11 @@ extern "C" {
 
 
   void Audio_EnableEngine(void) {
+    ScopedAudioLock lock(sound);
 		int i;
 		for(i = 0; i < game->players; i++)
 			if( game->player[i].data->speed > 0)
-				Audio_StartEngine(i);
+				players[i]->Start();
     sample_engine->Start();
     if (gSettingsCache.show_recognizer)
       sample_recognizer->Start();
@@ -58,13 +79,17 @@ extern "C" {
   }
 
   void Audio_DisableEngine(void) {
+    ScopedAudioLock lock(sound);
     sample_engine->Stop();
     sample_recognizer->Stop();
     // printf("[audio] turning off engine sound\n");
   }
 
-  void Audio_Idle(void) { 
-    // iterate over all the players and update the engines
+  void Audio_Idle(void) {
+    {
+      ScopedAudioLock lock(sound);
+    // The callback reads all state updated in this block.
+    // Iterate over all the players and update the engines.
     if(sample_engine->IsPlaying()) {
       for(int i = 0; i < PLAYERS; i++) {
 				Player *p;
@@ -142,10 +167,11 @@ extern "C" {
 
     sound->SetMixMusic(gSettingsCache.playMusic);
     sound->SetMixFX(gSettingsCache.playEffects);
+    }
     sound->Idle();
   }
 
-  void Audio_CrashPlayer(int player) {
+  void Audio_CrashPlayer(int) {
     Sound::SourceCopy *copy = new Sound::SourceCopy(sample_crash);
     copy->Start();
     copy->SetRemovable();
@@ -194,39 +220,53 @@ extern "C" {
 
   void Audio_Quit(void) {
     SDL_PauseAudio(1);
-    Sound_Quit();
+    sound->SetStatus(Sound::eUninitialized);
     SDL_CloseAudio();
+    Sound_Quit();
   }
 
   void Audio_LoadMusic(char *name) {
-    if(music != NULL) {
-      music->Stop();
-      music->SetRemovable();
+    Sound::SourceMusic *new_music = new Sound::SourceMusic(sound);
+    if(!new_music->Load(name)) {
+      delete new_music;
+      return;
     }
-    music = new Sound::SourceMusic(sound);
-    music->Load(name);
-    music->SetLoop(255);
-    music->SetType(Sound::eSoundMusic);
+    new_music->SetLoop(255);
+    new_music->SetType(Sound::eSoundMusic);
 
     char *sname = new char[32];
     sprintf(sname, "music");
-    music->SetName(sname);
-    sound->AddSource(music);
+    new_music->SetName(sname);
+
+    if(music != NULL) {
+      ScopedAudioLock lock(sound);
+      music->Pause();
+      music->SetRemovable();
+    }
+    sound->AddSource(new_music);
+    music = new_music;
   }
 
   void Audio_PlayMusic(void) {
-    music->Start();
+    ScopedAudioLock lock(sound);
+    if(music != NULL)
+      music->Start();
   }
 
   void Audio_StopMusic(void) {
-    music->Stop();
+    ScopedAudioLock lock(sound);
+    if(music != NULL)
+      music->Stop();
   }
 
   void Audio_SetMusicVolume(float volume) {
-    music->SetVolume(volume);
+    ScopedAudioLock lock(sound);
+    if(music != NULL)
+      music->SetVolume(volume);
   }
-  
+
   void Audio_SetFxVolume(float volume) {
+    ScopedAudioLock lock(sound);
     sample_engine->SetVolume(volume);
     sample_crash->SetVolume(volume);
     if(volume > 0.8f)
@@ -236,10 +276,12 @@ extern "C" {
   }
 
   void Audio_StartEngine(int iPlayer) {
+    ScopedAudioLock lock(sound);
     players[iPlayer]->Start();
   }
 
   void Audio_StopEngine(int iPlayer) {
+    ScopedAudioLock lock(sound);
     players[iPlayer]->Stop();
   }
  

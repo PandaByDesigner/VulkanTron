@@ -11,20 +11,23 @@ namespace Sound {
   public:
     SourceMusic(System *system);
     virtual ~SourceMusic();
-    void Load(char *filename);
+    int Load(char *filename);
     virtual int Mix(Uint8 *data, int len);
 		virtual void Idle(void);
 
   protected:
-    virtual void Reset(void) { 
+    virtual void Reset(void) {
       if(_sample != NULL) {
 				CleanUp();
-				CreateSample();
+				if(!CreateSample())
+					_isPlaying = 0;
 				// fprintf(stderr, "sample resetted\n");
-      };
+      } else {
+				_isPlaying = 0;
+      }
     };
     void CleanUp(void);
-    void CreateSample(void);
+    int CreateSample(void);
 
   private:
     Sound_Sample* _sample;

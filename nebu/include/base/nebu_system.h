@@ -11,6 +11,8 @@ extern int SystemMainLoop();
 extern void SystemExitLoop(int return_code);
 extern void SystemRegisterCallbacks(Callbacks* callbacks);
 
+typedef void (*SystemShutdownCallback)(void);
+extern void SystemSetShutdownCallback(SystemShutdownCallback callback);
 extern void SystemExit();
 
 extern void SystemHandleInput(SDL_Event *event);

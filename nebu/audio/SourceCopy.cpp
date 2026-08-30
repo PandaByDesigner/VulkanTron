@@ -21,9 +21,8 @@ namespace Sound {
 		   volume);
       len -= buffersize - _position;
 
-      printf("end of sample reached!\n");
-      if(_loop) {
-	if(_loop != 255) 
+	      if(_loop) {
+	if(_loop != 255)
 	  _loop--;
 
 	_position = 0;

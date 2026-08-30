@@ -94,6 +94,7 @@ void initAudio(void) {
   /* probe for artpacks & songs */
   Sound_initTracks();
   Sound_setup();
+  SystemSetShutdownCallback(Sound_shutdown);
 }
 	
 void initGame(void) {

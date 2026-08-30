@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-Uint8 tmp[65536];
+static Uint8 tmp[65536];
 
 #define USOUND 50
 #define EPSILON 0.1f	 
@@ -51,10 +51,8 @@ int fxShift(float shift, Uint8 *target, Uint8 *source, int len) {
 #define MIN_SINT16 (- (1 << 15) )
       if(result > MAX_SINT16) {
 	result = MAX_SINT16;
-	fprintf(stderr, "overflow\n");
       } else if(result < MIN_SINT16) {
 	result = MIN_SINT16;
-	fprintf(stderr, "underflow\n");
       }
 
       *( (Sint16*) target + j + 2 * i ) = (Sint16) result;
@@ -142,17 +140,13 @@ namespace Sound {
 
   /* doppler */
 
-    fShift = 
+    fShift =
       (USOUND + ( vListenerVelocity * vTarget ) / vTarget.Length() ) / 
       (USOUND + ( vSourceVelocity * vTarget ) / vTarget.Length() );
-		if(fShift < 0.5) {
-			printf("clamping fShift from %.2f to 0.5\n", fShift);
-			fShift = 0.5f;
-		}
-		if(fShift > 1.5) {
-			printf("clamping fShift from %.2f to 1.5\n", fShift);
-			fShift = 1.5f;
-		}
+    if(fShift < 0.5)
+      fShift = 0.5f;
+    if(fShift > 1.5)
+      fShift = 1.5f;
 
     /* done doppler */
   }
@@ -161,7 +155,6 @@ namespace Sound {
     if(_source->_buffer == NULL) return 0;
 
     if(_source->IsPlaying()) {
-      int volume = (int)(_source->GetVolume() * SDL_MIX_MAXVOLUME);
       float pan = 0, shift = 1.0f, vol = 1.0f;
       int clen, shifted_len;
 
@@ -171,7 +164,9 @@ namespace Sound {
       shifted_len = 4 * fxComputeShiftLen( shift, len / 4 );
       clen = MAX(len, shifted_len) + 32; // safety distance
 
-      assert(clen < _source->_buffersize);
+      if(clen <= 0 || clen > (int)sizeof(tmp) ||
+		 clen >= _source->_buffersize)
+	return 0;
 
       if(vol > SOUND_VOL_THRESHOLD) {
 				// copy clen bytes from the buffer to a temporary buffer

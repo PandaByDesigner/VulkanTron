@@ -3,9 +3,10 @@
 #include <string.h>
 
 namespace Sound {
-  System::System(SDL_AudioSpec *spec) { 
+  System::System(SDL_AudioSpec *spec) {
     _spec = spec;
-    _sources.next = NULL; 
+    _sources.data = NULL;
+    _sources.next = NULL;
 
     _info.format = _spec->format;
     _info.rate = spec->freq;
@@ -15,6 +16,27 @@ namespace Sound {
     _mix_fx = 1;
 
     _status = 0; // sound system is not initialized
+  }
+
+  void System::Lock() {
+    if(_status == eInitialized)
+      SDL_LockAudio();
+  }
+
+  void System::Unlock() {
+    if(_status == eInitialized)
+      SDL_UnlockAudio();
+  }
+
+  void System::SetStatus(int status) {
+    if(_status == eInitialized) {
+      SDL_LockAudio();
+      _status = status;
+      SDL_UnlockAudio();
+    } else {
+      /* The device is still paused while it becomes initialized. */
+      _status = status;
+    }
   }
 
   void System::Callback(Uint8* data, int len) {
@@ -27,7 +49,6 @@ namespace Sound {
       return;
 
     List* p;
-    int sources_mixed = 0;
     for(p = & _sources; p->next != NULL; p = p->next) {
       Source* s = (Source*) p->data;
       if(s->IsPlaying()) {
@@ -37,40 +58,55 @@ namespace Sound {
 						 (s->GetType() & eSoundMusic && ! _mix_music) )
 					 )
 					{
-						if( s->Mix(data, len) )
-							sources_mixed++;
+						s->Mix(data, len);
 					}
-				// fprintf(stderr, "done mixing %d sources\n", sources_mixed);
       }
     }
   }
 
-  void System::AddSource(Source* source) { 
+  void System::AddSource(Source* source) {
+    List* new_tail = new List;
+    new_tail->data = NULL;
+    new_tail->next = NULL;
+
+    Lock();
+
     List* p;
-    for(p = & _sources; p->next != NULL; p = p->next);
-    p->next = new List;
-    p->next->next = NULL;
+    for(p = &_sources; p->next != NULL; p = p->next);
     p->data = source;
+    p->next = new_tail; /* publish the fully initialized tail last */
+
+    Unlock();
   }
 
   void System::Idle(void) {
-		/* idle processing */
-		List *p;
-		for(p = & _sources; p->next != NULL; p = p->next) {
-			Source *source = (Source*) p->data;
-			// check if source is removable & has stopped playing
-			if(source->IsRemovable() && !source->IsPlaying()) {
-				// get rid of data
-				p->data = p->next->data;
-				List *tmp = p->next;
-				p->next = p->next->next;
-				delete tmp;
-				delete source;
-				if(p->next == NULL)
-					break;
-			} else {
-				source->Idle();
+		List *p = &_sources;
+
+		for(;;) {
+			Lock();
+
+			if(p->next == NULL) {
+				Unlock();
+				break;
 			}
+
+			Source *source = (Source*) p->data;
+			if(source->IsRemovable() && !source->IsPlaying()) {
+				List *dead = p->next;
+				p->data = dead->data;
+				p->next = dead->next;
+				Unlock();
+
+				delete dead;
+				delete source;
+				continue;
+			}
+
+			p = p->next;
+			Unlock();
+
+			/* Decoding may block, so never hold the callback lock here. */
+			source->Idle();
 		}
 	}
 
@@ -81,4 +117,3 @@ namespace Sound {
     }
   }
 }
-

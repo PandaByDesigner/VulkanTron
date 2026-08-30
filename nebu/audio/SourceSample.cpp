@@ -17,7 +17,7 @@ namespace Sound {
   SourceSample::~SourceSample() {
     // fprintf(stderr, "nebu_SourceSample destructor called\n");
     if(_buffer)
-      delete _buffer;
+      delete[] _buffer;
     // Source::~Source();
   }
 

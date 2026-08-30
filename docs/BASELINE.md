@@ -46,5 +46,15 @@ CFLAGS='-O2 -g' CXXFLAGS='-O2 -g' ../../configure --enable-warn=off --enable-loc
 make
 ```
 
-`--enable-localdata` lets the resulting binary use the assets from a source
-checkout. Run the binary with the repository root as its working directory.
+`--enable-localdata` makes asset paths relative to the executable's directory.
+GLTron also changes into that directory during startup, so copy the ignored
+build artifact to the source root before launching it:
+
+```sh
+cd ../..
+cp _build/classic/gltron ./gltron
+./gltron -i
+```
+
+Running the out-of-tree binary in place will not find `scripts/`, `data/`, or
+the other local asset directories even if the shell started in the source root.

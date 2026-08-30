@@ -45,13 +45,18 @@ namespace Sound {
   }
 
 	/*! 
-		\fn void SourceMusic::CreateSample(void)
+		\fn int SourceMusic::CreateSample(void)
 		
 		call this function only between semaphores
 	*/
 
-  void SourceMusic::CreateSample(void) {
+  int SourceMusic::CreateSample(void) {
     _rwops = SDL_RWFromFile(_filename, "rb");
+		if(_rwops == NULL) {
+			fprintf(stderr, "[error] failed opening sample %s: %s\n",
+						_filename, SDL_GetError());
+			return 0;
+		}
 	char *ext = _filename;
 	for(int i = 0; *(_filename + i); i++)
 	{
@@ -65,37 +70,47 @@ namespace Sound {
     if(_sample == NULL) {
 		fprintf(stderr, "[error] failed loading sample type %s, from %s: %s\n", ext,
 			_filename, Sound_GetError());
-		return;
+		_rwops = NULL; /* Sound_NewSample owns the RWops even on failure. */
+		return 0;
 	}
 
     _read = 0;
     _decoded = 0;
     // fprintf(stderr, "created sample\n");
+    return 1;
   }
 
-  void SourceMusic::Load(char *filename) {
+  int SourceMusic::Load(char *filename) {
 		int n = strlen(filename);
 		_filename = (char*) malloc(n + 1);
+		if(_filename == NULL)
+			return 0;
 		memcpy(_filename, filename, n + 1);
-    CreateSample();
+    return CreateSample();
   }
 
   void SourceMusic::CleanUp(void) {
 		_read = 0;
     _decoded = 0;
 
-    if(_sample != NULL) 
+    if(_sample != NULL) {
       Sound_FreeSample(_sample);
+      _sample = NULL;
+      _rwops = NULL;
+    }
   }
 
   int SourceMusic::Mix(Uint8 *data, int len) {
-    if(_sample == NULL) return 0;
 #ifndef macintosh
-		if( SDL_SemTryWait(_sem) ) {
-			fprintf(stderr, "semaphore locked, skipping mix\n");
+		if(SDL_SemTryWait(_sem))
 			return 0;
-		}
 #endif
+    if(_sample == NULL) {
+#ifndef macintosh
+			SDL_SemPost(_sem);
+#endif
+      return 0;
+    }
 		// printf("mixing %d bytes\n", len);
 
     int volume = (int)(_volume * SDL_MIX_MAXVOLUME);
@@ -109,30 +124,38 @@ namespace Sound {
 				_read = (_read + len) % _buffersize;
 			} else {
 				// wrap around in buffer
-				fprintf(stderr, "wrap around in buffer (%d, %d, %d)\n", 
-								len, _read, _buffersize);
-				
 				SDL_MixAudio(data, _buffer + _read, _buffersize - _read, volume);
 				len -= _buffersize - _read;
 				SDL_MixAudio(data + _buffersize - _read, _buffer, len, volume);
 				_read = len;
 			}
 		} else {
-			// buffer under-run
-			fprintf(stderr, "buffer underrun!\n");
-			// don't do anything
+			// buffer under-run; don't do anything
 		}
 
 #ifndef macintosh
 		SDL_SemPost(_sem);
 #endif
     return 1;
-  }
+	}
 
 	void SourceMusic::Idle(void) {
-		if(_sample == NULL)
+#ifndef macintosh
+		if(SDL_SemWait(_sem))
 			return;
-		
+#else
+		SDL_LockAudio();
+#endif
+
+		if(_sample == NULL) {
+#ifndef macintosh
+			SDL_SemPost(_sem);
+#else
+			SDL_UnlockAudio();
+#endif
+			return;
+		}
+
 		// printf("idling\n");
 		while( _read == _decoded || 
 					 (_read - _decoded + _buffersize) % _buffersize >
@@ -154,14 +177,9 @@ namespace Sound {
 			_decoded = (_decoded + count) % _buffersize;
 
 			// check for end of sample, loop
-			if((_sample->flags & SOUND_SAMPLEFLAG_ERROR) || 
+			if((_sample->flags & SOUND_SAMPLEFLAG_ERROR) ||
 			   (_sample->flags & SOUND_SAMPLEFLAG_EOF)) {
 				// some error has occured, maybe end of sample reached
-#ifndef macintosh
-				SDL_SemWait(_sem);
-#else
-                SDL_LockAudio();
-#endif
 				// todo: let playback finish, because there's still data
 				// in the buffer that has to be mixed
 				CleanUp();
@@ -171,16 +189,34 @@ namespace Sound {
 					if(_loop != 255) 
 						_loop--;
 					CreateSample();
-				} else {
-					_isPlaying = 0;
-					// todo: notify sound system (maybe load another song?)
-				}
+					if(_sample == NULL) {
 #ifndef macintosh
-				SDL_SemPost(_sem);
-#else
-                SDL_UnlockAudio();
+						_system->Lock();
 #endif
+						_isPlaying = 0;
+#ifndef macintosh
+						_system->Unlock();
+#endif
+						break;
+					}
+				} else {
+#ifndef macintosh
+					_system->Lock();
+#endif
+					_isPlaying = 0;
+#ifndef macintosh
+					_system->Unlock();
+#endif
+					// todo: notify sound system (maybe load another song?)
+					break;
+				}
 			}
 		} // buffer has been filled
+
+#ifndef macintosh
+		SDL_SemPost(_sem);
+#else
+		SDL_UnlockAudio();
+#endif
 	}
 }

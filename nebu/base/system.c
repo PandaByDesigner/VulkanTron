@@ -2,15 +2,30 @@
 
 #include "SDL.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 Callbacks *current = 0;
 static int return_code = -1;
 static int redisplay = 0;
+static int shutting_down = 0;
+static SystemShutdownCallback shutdown_callback = NULL;
+
+void SystemSetShutdownCallback(SystemShutdownCallback callback) {
+  shutdown_callback = callback;
+}
 
 void SystemExit() {
+  if(shutting_down)
+    exit(EXIT_SUCCESS);
+
+  shutting_down = 1;
+  if(shutdown_callback != NULL)
+    shutdown_callback();
+
   fprintf(stderr, "[system] shutting down SDL now\n");
   SDL_Quit();
   fprintf(stderr, "[system] exiting application\n");
+  exit(EXIT_SUCCESS);
 }
 
 unsigned int SystemGetElapsedTime() {
@@ -65,4 +80,3 @@ void SystemExitLoop(int value) {
 void SystemPostRedisplay() {
   redisplay = 1;
 }
-

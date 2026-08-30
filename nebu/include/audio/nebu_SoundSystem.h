@@ -35,11 +35,13 @@ namespace Sound {
     void Callback(Uint8* data, int len);
     void Idle(); /* remove dead sound sources */
     void AddSource(Source* source);
+    void Lock();
+    void Unlock();
     Sound_AudioInfo* GetAudioInfo() { return &_info; };
     Listener& GetListener() { return _listener; };
     void SetMixMusic(int value) { _mix_music = value; };
     void SetMixFX(int value) { _mix_fx = value; };
-    void SetStatus(int eStatus) { _status = eStatus; };
+    void SetStatus(int eStatus);
 
   protected:
     SDL_AudioSpec *_spec;
