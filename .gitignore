@@ -1,0 +1,15 @@
+# Autotools in-tree build output
+.deps/
+*.a
+*.o
+Makefile
+config.log
+config.status
+/gltron
+
+# Maintainer-tool output
+autom4te.cache/
+
+# Local build directories
+_build/
+build/

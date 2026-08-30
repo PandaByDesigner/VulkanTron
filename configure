@@ -2805,7 +2805,7 @@ else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
 
-CFLAGS="-DSEPARATOR=\"'/'\""
+CFLAGS="$CFLAGS -DSEPARATOR=\"'/'\""
 
 # Check whether --enable-warn or --disable-warn was given.
 if test "${enable_warn+set}" = set; then
@@ -2852,10 +2852,6 @@ if test "${enable_optimize+set}" = set; then
 else
   enable_optimize=s
 fi;
-if test "x$enable_optimize" ; then
-	CFLAGS="$CFLAGS -O$enable_optimize"
-	CXXFLAGS="$CXXFLAGS -O$enable_optimize"
-fi
 
 # Check whether --with-sdl-prefix or --without-sdl-prefix was given.
 if test "${with_sdl_prefix+set}" = set; then

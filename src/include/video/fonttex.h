@@ -10,7 +10,7 @@ typedef struct {
   int lower; /* lowest ascii character (normally: 32) */
   int upper; /* highest ascii character (normally: 126) */
 
-  int *texID;
+  unsigned int *texID;
 
   char *fontname;
   char *bitmapname;

@@ -7,6 +7,7 @@
 
 
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #define __USE_MISC /* for mkstemp() */
 #include <stdlib.h>
@@ -744,4 +745,3 @@ LUALIB_API void lua_iolibopen (lua_State *L) {
   luaL_openl(L, iolib);
   openwithcontrol(L);
 }
-

@@ -19,7 +19,7 @@ float getDist(segment2 *s, float* eye) {
   n[1] = s->vStart.v[1] - s->vDirection.v[0];
   tmp[0] = eye[0] - s->vStart.v[0];
   tmp[1] = eye[1] - s->vStart.v[1];
-  if(n[0] == n[1] == 0) return length(tmp);
+  if(n[0] == 0 && n[1] == 0) return length(tmp);
   return abs(scalarprod2(n, tmp) / length(n));
 }
 
