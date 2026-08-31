@@ -1,4 +1,5 @@
 #include "video/video.h"
+#include "video/display_layout.h"
 #include "game/game.h"
 
 #include "video/skybox.h"
@@ -328,7 +329,7 @@ void drawCam(Player *p, PlayerVisual* pV) {
 	
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  doPerspective(gSettingsCache.fov, d->vp_w / d->vp_h,
+  doPerspective(gSettingsCache.fov, DisplayLayout_Aspect(d),
                 gSettingsCache.znear, game2->rules.grid_size * 6.5f);
 
   glMatrixMode(GL_MODELVIEW);

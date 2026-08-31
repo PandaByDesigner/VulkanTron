@@ -1,10 +1,10 @@
 noinst_LIBRARIES=libvideo.a
 
 libvideo_a_SOURCES = \
-	artpack.c explosion.c fonts.c fonttex.c gamegraphics.c \
+	artpack.c display_layout.c explosion.c fonts.c fonttex.c gamegraphics.c \
 	graphics_fx.c graphics_hud.c graphics_lights.c \
 	graphics_utility.c graphics_world.c \
-	load_texture.c material.c model.c recognizer.c \
+	load_texture.c material.c model.c player_visual.c recognizer.c \
 	screenshot.c skybox.c texture.c trail.c trail_geometry.c \
 	trail_render.c video.c visuals_2d.c
 

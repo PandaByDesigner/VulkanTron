@@ -320,6 +320,86 @@ List* doMovement(int mode, int dt) {
   }
   return l;
 }
+
+static void clearEventNodes(void) {
+  List *p;
+  List *next;
+
+  p = game2->events.next;
+  while(p != NULL) {
+    next = p->next;
+    free(p);
+    p = next;
+  }
+  game2->events.data = NULL;
+  game2->events.next = NULL;
+}
+
+void clearEventQueue(void) {
+  List *p;
+
+  for(p = &game2->events; p->next != NULL; p = p->next)
+    free(p->data);
+
+  clearEventNodes();
+}
+
+/*
+ * Process and release the sentinel-terminated global event queue.  A stop
+ * event ends the round, so later queued events are discarded rather than
+ * executed, but their storage is still reclaimed.
+ */
+static int processQueuedEvents(void) {
+  List *p;
+  int stopped = 0;
+
+  for(p = &game2->events; p->next != NULL; p = p->next) {
+    GameEvent *event = (GameEvent *) p->data;
+    if(!stopped)
+      stopped = processEvent(event);
+    else
+      free(event);
+  }
+
+  clearEventNodes();
+
+  return stopped;
+}
+
+/*
+ * Run one classic physics quantum.  Both the interactive loop and timedemo
+ * use this seam so regression tests exercise the production AI/event order.
+ */
+int Game_PhysicsStep(int dt) {
+  List *l;
+  List *p;
+  int i;
+
+  for(i = 0; i < game->players; i++)
+    if(game->player[i].ai != NULL)
+      if(game->player[i].ai->active == AI_COMPUTER &&
+         PLAYER_IS_ACTIVE(&game->player[i]))
+        doComputer(i, 0);
+
+  if(processQueuedEvents())
+    return 1;
+
+  l = doMovement(1, dt); /* this can generate new events */
+  if(l != NULL) {
+    for(p = l; p->next != NULL; p = p->next) {
+      if(processEvent((GameEvent *) p->data));
+    }
+  }
+
+  p = l;
+  while(p != NULL) {
+    l = p;
+    p = p->next;
+    free(l);
+  }
+
+  return 0;
+}
  
 /*! \fn void idleGame( void )
   game loop:
@@ -328,8 +408,9 @@ List* doMovement(int mode, int dt) {
 */
 
 void Game_Idle(void) {
+#ifdef RECORD
   List *l;
-  List *p;
+#endif
   int i;
   int dt;
   int t;
@@ -364,42 +445,8 @@ void Game_Idle(void) {
 			if(dt > PHYSICS_RATE) t = PHYSICS_RATE;
 			else t = dt;
 
-			/* run AI */
-			for(i = 0; i < game->players; i++)
-				if(game->player[i].ai != NULL)
-					if(game->player[i].ai->active == AI_COMPUTER &&
-						 PLAYER_IS_ACTIVE(&game->player[i])) {
-						doComputer(i, 0);
-					}
-
-			/* process any outstanding events (turns, etc) */
-			for(p = &(game2->events); p->next != NULL; p = p->next) {
-				if(processEvent((GameEvent*) p->data)) return;
-			}
-
-			/* free events */
-			p = game2->events.next;
-			while(p != NULL) {
-				l = p;
-				p = p->next;
-				free(l);
-			}
-			game2->events.next = NULL;
-
-			l = doMovement(1, t); /* this can generate new events */
-			if(l != NULL) {
-				for(p = l; p->next != NULL; p = p->next) {
-					if(processEvent((GameEvent*) p->data));
-				}
-
-			}
-			/* free list  */
-			p = l;
-			while(p != NULL) {
-				l = p;
-				p = p->next;
-				free(l);
-			}
+			if(Game_PhysicsStep(t))
+				return;
 			dt -= PHYSICS_RATE;
 		}
 		break;

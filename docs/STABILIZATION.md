@@ -86,6 +86,9 @@ On the target Arch/Omarchy host, the stabilized tree:
 ## Deliberate next boundary
 
 This phase does not claim to have eliminated every warning in the 2003 codebase.
-The next stabilization pass should modernize the build system's sanitizer flag
-handling, add a bounded automated timedemo, and resolve the remaining
-memory/bounds/lifetime warning candidates before the faithful remaster begins.
+The protected result is tagged `stabilized-classic`. Faithful remaster work,
+including its deterministic production-loop regression for the unreliable
+built-in timedemo, is documented in `docs/FAITHFUL_REMASTER.md`. Modern
+sanitizer-flag handling and the remaining memory, bounds, lifetime, and warning
+candidates remain explicitly deferred; this remaster milestone does not claim
+to resolve them.

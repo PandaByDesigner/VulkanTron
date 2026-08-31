@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "game/gltron.h"
+#include "video/display_layout.h"
 
 /* FIXME: "ignored playMenuFX" */
 void playMenuFX(int foo) { }
@@ -20,13 +21,17 @@ void guiProjection(int x, int y) {
   checkGLError("gui.c guiProj - end");
 }
 
-void drawGuiBackground(void) {
+static void initGuiDisplay(Visual *display) {
+  DisplayLayout_AspectFit(display, gScreen, 4.0f / 3.0f);
+}
+
+void drawGuiBackground(Visual *display) {
   checkGLError("gui background start");
 
-  glClearColor(0.0, 0.0, 0.0, 0.0);
+  glClearColor(0.0, 0.0, 0.0, 1.0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  rasonly(gScreen);
+  rasonly(display);
 
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, gScreen->textures[TEX_GUI]);
@@ -39,18 +44,18 @@ void drawGuiBackground(void) {
   glVertex2f(0, 0);
 
   glTexCoord2f(1.0, 0.0);
-  glVertex2i(gScreen->vp_w, 0);
+  glVertex2i(display->vp_w, 0);
 
   glTexCoord2f(1.0, .75);
-  glVertex2i(gScreen->vp_w, gScreen->vp_h);
+  glVertex2i(display->vp_w, display->vp_h);
 
   glTexCoord2f(0.0, .75);
-  glVertex2i(0, gScreen->vp_h);
+  glVertex2i(0, display->vp_h);
 
   glEnd();
 }
 
-void drawGuiLogo(void) {
+void drawGuiLogo(Visual *display) {
   float pos[] = { 512 - 10 - 320, 384 - 80 };
   float size[] = { 320, 80 };
   float glpos = 64;
@@ -58,14 +63,14 @@ void drawGuiLogo(void) {
 
   checkGLError("gui logo start");
   
-  rasonly(gScreen);
+  rasonly(display);
 
-  pos[0] *= gScreen->vp_w / 512.0f;
-  pos[1] *= gScreen->vp_h / 384.0f;
-  size[0] *= gScreen->vp_w / 512.0f;
-  size[1] *= gScreen->vp_h / 384.0f;
-  glpos *= gScreen->vp_w / 512.0f;
-  glsize *= gScreen->vp_w / 512.0f;
+  pos[0] *= display->vp_w / 512.0f;
+  pos[1] *= display->vp_h / 384.0f;
+  size[0] *= display->vp_w / 512.0f;
+  size[1] *= display->vp_h / 384.0f;
+  glpos *= display->vp_w / 512.0f;
+  glsize *= display->vp_w / 512.0f;
   
   glEnable(GL_TEXTURE_2D);
 
@@ -102,23 +107,27 @@ void drawGuiLogo(void) {
 }
   
 void displayGui(void) {
-  drawGuiBackground();
-  drawGuiLogo();
-  drawMenu(gScreen);
+  Visual display;
+  initGuiDisplay(&display);
+  drawGuiBackground(&display);
+  drawGuiLogo(&display);
+  drawMenu(&display);
 
   SystemSwapBuffers();  
 }
 
 void displayConfigure(void) {
   char message[] = "Press a key for this action!";
-  drawGuiBackground();
-  drawGuiLogo();
-  drawMenu(gScreen);
+  Visual display;
+  initGuiDisplay(&display);
+  drawGuiBackground(&display);
+  drawGuiLogo(&display);
+  drawMenu(&display);
 
-  rasonly(gScreen);
+  rasonly(&display);
   glColor3f(1.0, 1.0, 1.0);
-  drawText(guiFtx, gScreen->vp_w / 6, 20,
-	   gScreen->vp_w / (6.0f / 4.0f * strlen(message)), message);
+  drawText(guiFtx, display.vp_w / 6, 20,
+	   display.vp_w / (6.0f / 4.0f * strlen(message)), message);
   SystemSwapBuffers();
 }
 
@@ -253,4 +262,3 @@ Callbacks guiCallbacks = {
   displayGui, idleGui, keyboardGui, initGui, exitGui, initGLGui, 
   guiMouse, guiMouseMotion, "gui"
 };
-

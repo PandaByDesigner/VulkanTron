@@ -1,0 +1,65 @@
+#!/bin/sh
+set -eu
+
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/gltron-faithful-regression.XXXXXX")
+trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
+
+cc=${CC:-cc}
+sdl_cflags=$(sdl-config --cflags)
+mode=${1:-plain}
+
+case "$mode" in
+  plain)
+    sanitizer_flags=
+    ;;
+  asan)
+    sanitizer_flags='-O1 -fno-omit-frame-pointer -fsanitize=address,undefined'
+    ;;
+  *)
+    echo "usage: $0 [plain|asan]" >&2
+    exit 2
+    ;;
+esac
+
+"$cc" -std=gnu99 -O2 -g -Wall -Wextra \
+  -Wno-unused-parameter -Wno-absolute-value -Wno-empty-body \
+  -Wno-sign-compare -Wno-unused-but-set-variable \
+  $sanitizer_flags \
+  $sdl_cflags \
+  -I"$repo_dir/nebu/include" \
+  -I"$repo_dir/src/include" \
+  -I"$repo_dir/lua/include" \
+  "$repo_dir/tests/classic_gameplay_regression.c" \
+  "$repo_dir/src/game/engine.c" \
+  "$repo_dir/src/game/event.c" \
+  "$repo_dir/src/game/computer.c" \
+  "$repo_dir/src/game/computer_utilities.c" \
+  "$repo_dir/src/game/globals.c" \
+  "$repo_dir/src/video/player_visual.c" \
+  "$repo_dir/nebu/base/vector.c" \
+  "$repo_dir/nebu/base/random.c" \
+  "$repo_dir/nebu/base/util.c" \
+  -lm -o "$build_dir/classic-gameplay-regression"
+
+"$cc" -std=gnu99 -O2 -g -Wall -Wextra \
+  $sanitizer_flags \
+  $sdl_cflags \
+  -I"$repo_dir/nebu/include" \
+  -I"$repo_dir/src/include" \
+  "$repo_dir/tests/display_layout_test.c" \
+  "$repo_dir/src/game/globals.c" \
+  "$repo_dir/src/video/display_layout.c" \
+  -lm -o "$build_dir/display-layout-test"
+
+if [ "$mode" = asan ]; then
+  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$build_dir/classic-gameplay-regression"
+  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+    UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$build_dir/display-layout-test"
+else
+  "$build_dir/classic-gameplay-regression"
+  "$build_dir/display-layout-test"
+fi

@@ -18,5 +18,6 @@ typedef struct GameEvent {
 
 extern void createEvent(int player, event_type_e eventType);
 extern int processEvent(GameEvent *e);
+extern void clearEventQueue(void);
 
 #endif /* EVENT_H */

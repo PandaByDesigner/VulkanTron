@@ -98,6 +98,7 @@ extern void writePosition(int player);
 extern void initGameStructures(void);
 extern void initClientData(void);
 
+extern int Game_PhysicsStep(int dt);
 extern void Game_Idle(void);
 extern void enterGame(void);
 extern void exitGame(void);

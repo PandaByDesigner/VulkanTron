@@ -382,6 +382,22 @@ Menu = {
       type = MenuC.type.action, caption = "1600 x 1200",
       action =  function() settings.width = 1600; settings.height = 1200; c_video_restart(); end
    },
+   _1280x720 = {
+      type = MenuC.type.action, caption = "1280 x 720 (16:9)",
+      action =  function() settings.width = 1280; settings.height = 720; c_video_restart(); end
+   },
+   _1600x900 = {
+      type = MenuC.type.action, caption = "1600 x 900 (16:9)",
+      action =  function() settings.width = 1600; settings.height = 900; c_video_restart(); end
+   },
+   _1920x1080 = {
+      type = MenuC.type.action, caption = "1920 x 1080 (16:9)",
+      action =  function() settings.width = 1920; settings.height = 1080; c_video_restart(); end
+   },
+   _2560x1440 = {
+      type = MenuC.type.action, caption = "2560 x 1440 (16:9)",
+      action =  function() settings.width = 2560; settings.height = 1440; c_video_restart(); end
+   },
    WindowMode = {
       type = MenuC.type.list, caption = "Windowed",
       labels = { "off", "on" },
@@ -568,7 +584,8 @@ Menu.DetailsMenu.items = {
 }
 Menu.ScreenMenu.items = {
    "_320x240", "_512x384", "_640x480", "_800x600", "_1024x768", "_1280x1024",
-   "_1600x1200", "WindowMode"
+   "_1600x1200", "_1280x720", "_1600x900", "_1920x1080", "_2560x1440",
+   "WindowMode"
 }
 
 Menu.AudioMenu.items = { "Music", "FX", "Music_Volume", "FX_Volume", "Song" }
@@ -576,6 +593,4 @@ Menu.AudioMenu.items = { "Music", "FX", "Music_Volume", "FX_Volume", "Song" }
 -- initialization code
 Menu.SetNames()
 Menu.SetParent( "RootMenu" )
-
-
 

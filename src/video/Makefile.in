@@ -81,10 +81,10 @@ install_sh = @install_sh@
 noinst_LIBRARIES = libvideo.a
 
 libvideo_a_SOURCES = \
-	artpack.c explosion.c fonts.c fonttex.c gamegraphics.c \
+	artpack.c display_layout.c explosion.c fonts.c fonttex.c gamegraphics.c \
 	graphics_fx.c graphics_hud.c graphics_lights.c \
 	graphics_utility.c graphics_world.c \
-	load_texture.c material.c model.c recognizer.c \
+	load_texture.c material.c model.c player_visual.c recognizer.c \
 	screenshot.c skybox.c texture.c trail.c trail_geometry.c \
 	trail_render.c video.c visuals_2d.c
 
@@ -101,12 +101,12 @@ LIBRARIES = $(noinst_LIBRARIES)
 
 libvideo_a_AR = $(AR) cru
 libvideo_a_LIBADD =
-am_libvideo_a_OBJECTS = artpack.$(OBJEXT) explosion.$(OBJEXT) \
-	fonts.$(OBJEXT) fonttex.$(OBJEXT) gamegraphics.$(OBJEXT) \
+am_libvideo_a_OBJECTS = artpack.$(OBJEXT) display_layout.$(OBJEXT) \
+	explosion.$(OBJEXT) fonts.$(OBJEXT) fonttex.$(OBJEXT) gamegraphics.$(OBJEXT) \
 	graphics_fx.$(OBJEXT) graphics_hud.$(OBJEXT) \
 	graphics_lights.$(OBJEXT) graphics_utility.$(OBJEXT) \
 	graphics_world.$(OBJEXT) load_texture.$(OBJEXT) \
-	material.$(OBJEXT) model.$(OBJEXT) recognizer.$(OBJEXT) \
+	material.$(OBJEXT) model.$(OBJEXT) player_visual.$(OBJEXT) recognizer.$(OBJEXT) \
 	screenshot.$(OBJEXT) skybox.$(OBJEXT) texture.$(OBJEXT) \
 	trail.$(OBJEXT) trail_geometry.$(OBJEXT) trail_render.$(OBJEXT) \
 	video.$(OBJEXT) visuals_2d.$(OBJEXT)
@@ -118,7 +118,8 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
-@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/artpack.Po $(DEPDIR)/explosion.Po \
+@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/artpack.Po $(DEPDIR)/display_layout.Po \
+@AMDEP_TRUE@	$(DEPDIR)/explosion.Po \
 @AMDEP_TRUE@	$(DEPDIR)/fonts.Po $(DEPDIR)/fonttex.Po \
 @AMDEP_TRUE@	$(DEPDIR)/gamegraphics.Po $(DEPDIR)/graphics_fx.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_hud.Po \
@@ -126,7 +127,8 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 @AMDEP_TRUE@	$(DEPDIR)/graphics_utility.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_world.Po \
 @AMDEP_TRUE@	$(DEPDIR)/load_texture.Po $(DEPDIR)/material.Po \
-@AMDEP_TRUE@	$(DEPDIR)/model.Po $(DEPDIR)/recognizer.Po \
+@AMDEP_TRUE@	$(DEPDIR)/model.Po $(DEPDIR)/player_visual.Po \
+@AMDEP_TRUE@	$(DEPDIR)/recognizer.Po \
 @AMDEP_TRUE@	$(DEPDIR)/screenshot.Po $(DEPDIR)/skybox.Po \
 @AMDEP_TRUE@	$(DEPDIR)/texture.Po $(DEPDIR)/trail.Po \
 @AMDEP_TRUE@	$(DEPDIR)/trail_geometry.Po \
@@ -169,6 +171,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/artpack.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/display_layout.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/explosion.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/fonts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/fonttex.Po@am__quote@
@@ -181,6 +184,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/load_texture.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/material.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/model.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/player_visual.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/recognizer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/screenshot.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/skybox.Po@am__quote@

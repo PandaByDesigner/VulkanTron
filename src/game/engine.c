@@ -39,8 +39,9 @@ void initGameStructures(void) { /* called only once */
     p->data->trails = (segment2*) malloc(MAX_TRAIL * sizeof(segment2));
 		p->data->trailOffset = 0;
 		p->camera = (Camera*) malloc(sizeof(Camera));
-   }
+  }
 
+  game2->events.data = NULL;
   game2->events.next = NULL;
   game2->mode = GAME_SINGLE;
 }
@@ -75,6 +76,7 @@ void resetPlayerData(void) {
 			ai->active = AI_NONE;
 		}
 		ai->tdiff = 0;
+		ai->lasttime = 0;
 
 		/* arrange players in circle around center */
 
@@ -85,6 +87,7 @@ void resetPlayerData(void) {
 		data->dir = trand() & 3;
 		/* data->dir = startdir[i]; */
 		data->last_dir = data->dir;
+		data->turn_time = 0;
 
 		/* if player is playing... */
 		if(ai->active != AI_NONE) {
@@ -140,11 +143,10 @@ void initData(void) {
 	/* TODO: fix that */
 	game2->players = game->players;
 	/* event management */
-	game2->events.next = NULL;
-	/* TODO: free any old events that might have gotten left */
+	clearEventQueue();
 
-  resetVideoData();
 	resetPlayerData();
+  resetVideoData();
 
   initWalls();
 }

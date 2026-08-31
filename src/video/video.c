@@ -1,4 +1,5 @@
 #include "video/video.h"
+#include "video/display_layout.h"
 #include "game/game.h"
 #include "filesystem/path.h"
 
@@ -158,43 +159,9 @@ void initGameScreen(void) {
 }
 
 
-void resetVideoData(void) {
-  /* for each player */
-
-  int i;
-  for(i = 0; i < game->players; i++) {
-		PlayerVisual *pV = gPlayerVisuals + i;
-    {
-      char name[32];
-      sprintf(name, "model_diffuse_%d", i);
-			scripting_GetGlobal(name, NULL);
-      scripting_GetFloatArrayResult(pV->pColorDiffuse, 4);
-      sprintf(name, "model_specular_%d", i);
-			scripting_GetGlobal(name, NULL);
-      scripting_GetFloatArrayResult(pV->pColorSpecular, 4);
-      sprintf(name, "trail_diffuse_%d", i);
-			scripting_GetGlobal(name, NULL);
-      scripting_GetFloatArrayResult(pV->pColorAlpha, 4);
-    }
-		if(game->player[i].ai->active != AI_NONE) {
-			pV->impact_radius = 0.0;
-			pV->exp_radius = 0;
-		} else {
-			pV->exp_radius = EXP_RADIUS_MAX;
-		}
-
-  }
-}
-
 void initDisplay(Visual *d, int type, int p, int onScreen) {
-  int field;
-  field = gScreen->vp_w / 32;
-  d->h = gScreen->h;
-  d->w = gScreen->w;
-  d->vp_x = gScreen->vp_x + vp_x[type][p] * field;
-  d->vp_y = gScreen->vp_y + vp_y[type][p] * field;
-  d->vp_w = vp_w[type][p] * field;
-  d->vp_h = vp_h[type][p] * field;
+  DisplayLayout_Viewport(d, gScreen, vp_x[type][p], vp_y[type][p],
+                         vp_w[type][p], vp_h[type][p]);
   d->onScreen = onScreen;
 }  
 

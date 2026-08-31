@@ -136,7 +136,7 @@ void parse_args(int argc, const char *argv[]) {
 				case 'C': setSettingi("show_ai_status", 1); break;
 				case 'i': setSettingi("windowMode", 1); break;
 				case 'O': setSettingi("softwareRendering", 1); break;
-				case '1': /* default is 4 */
+				case '1':
 					setSettingi("width", 320);
 					setSettingi("height", 240);
 					break;
@@ -164,13 +164,21 @@ void parse_args(int argc, const char *argv[]) {
 					setSettingi("width", 1600);
 					setSettingi("height", 1200);
 					break;
+				case '8':
+					setSettingi("width", 1280);
+					setSettingi("height", 720);
+					break;
+				case '9':
+					setSettingi("width", 1920);
+					setSettingi("height", 1080);
+					break;
 				case 's':
 					setSettingi("playMusic", 0);
 					setSettingi("playEffects", 0);
 					break;
 				case 'h':
 				default:
-					printf("Usage: %s [-FftwbghcCsk1234simo]\n\n", argv[0]);
+					printf("Usage: %s [options]\n\n", argv[0]);
 					printf("Options:\n\n");
 					printf("-F\tdon't display FPS counter\n");
 					printf("-t\tdon't display floor texture, use lines instead"
@@ -184,10 +192,12 @@ void parse_args(int argc, const char *argv[]) {
 					printf("-1\tSet resolution to 320x240\n");
 					printf("-2\tSet resolution to 512x384\n");
 					printf("-3\tSet resolution to 640x480\n");
-					printf("-4\tSet resolution to 800x600 (default)\n");
+					printf("-4\tSet resolution to 800x600\n");
 					printf("-5\tSet resolution to 1024x768\n");
 					printf("-6\tSet resolution to 1280x1024\n");
 					printf("-7\tSet resolution to 1600x1200\n");
+					printf("-8\tSet resolution to 1280x720 (default)\n");
+					printf("-9\tSet resolution to 1920x1080\n");
 
 					printf("-s\tDon't play sound\n");
 					/* printf("-v\tStart in demo/screensaver mode\n"); */

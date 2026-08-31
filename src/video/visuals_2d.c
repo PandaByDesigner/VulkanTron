@@ -9,7 +9,8 @@ void draw2D( Visual *d ) {
 		int i;
 
 		float aspect = (float)d->vp_w / (float)d->vp_h;
-		if(d->vp_w / game2->grid.width < d->vp_h / game2->grid.height) {
+		if((float)d->vp_w / (float)game2->grid.width <
+			 (float)d->vp_h / (float)game2->grid.height) {
 				// black borders top/bottom
 				width = game2->grid.width + 1.0f;
 				height = width / aspect;

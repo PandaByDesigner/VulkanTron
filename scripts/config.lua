@@ -55,8 +55,8 @@ settings.show_ai_status = 1
 settings.show_scores = 1
 
 -- screen options
-settings.width = 800
-settings.height = 600
+settings.width = 1280
+settings.height = 720
 settings.windowMode = 1
 
 -- other settings (not available via menu)
