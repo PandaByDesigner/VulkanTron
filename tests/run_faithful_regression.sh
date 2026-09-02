@@ -52,6 +52,17 @@ esac
   "$repo_dir/src/video/display_layout.c" \
   -lm -o "$build_dir/display-layout-test"
 
+"$cc" -std=gnu99 -O2 -g -Wall -Wextra \
+  $sanitizer_flags \
+  $sdl_cflags \
+  -I"$repo_dir/nebu/include" \
+  -I"$repo_dir/src/include" \
+  "$repo_dir/tests/hud_layout_test.c" \
+  "$repo_dir/src/game/globals.c" \
+  "$repo_dir/src/video/display_layout.c" \
+  "$repo_dir/src/video/hud_layout.c" \
+  -lm -o "$build_dir/hud-layout-test"
+
 if [ "$mode" = asan ]; then
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
@@ -59,7 +70,11 @@ if [ "$mode" = asan ]; then
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
     UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
     "$build_dir/display-layout-test"
+  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+    UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$build_dir/hud-layout-test"
 else
   "$build_dir/classic-gameplay-regression"
   "$build_dir/display-layout-test"
+  "$build_dir/hud-layout-test"
 fi

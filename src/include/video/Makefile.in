@@ -78,7 +78,7 @@ am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
 
-noinst_HEADERS = display_layout.h explosion.h fonttex.h graphics_fx.h graphics_hud.h graphics_lights.h graphics_utility.h graphics_world.h model.h recognizer.h skybox.h texture.h trail_geometry.h video.h
+noinst_HEADERS = display_layout.h explosion.h fonttex.h graphics_fx.h graphics_hud.h graphics_lights.h graphics_utility.h graphics_world.h hud_layout.h model.h recognizer.h skybox.h texture.h trail_geometry.h video.h
 subdir = src/include/video
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_CLEAN_FILES =

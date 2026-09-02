@@ -84,6 +84,55 @@ classic save-on-quit and F5 behavior remains unchanged. The screen menu adds
 1280 by 720, 1600 by 900, 1920 by 1080, and 2560 by 1440 choices. Command-line
 shortcuts `-8` and `-9` select 1280 by 720 and 1920 by 1080.
 
+## Gameplay and HUD milestone
+
+### Scripted production behavior
+
+The production-path regression now locks three more pieces of classic play:
+
+- queued left-then-right human turns retain their order and event metadata,
+  and produce the expected continuous trail;
+- a wall impact clips the trail at the wall, queues the classic deferred crash
+  time, and awards the score on the following simulation step; and
+- boost-enabled and boost-disabled fuel drain, speed recovery, and upper
+  clamps retain their classic progression. Input gating remains part of the
+  later input and configuration milestone.
+
+These checks call the production scheduler, movement, event, collision, score,
+and booster code used by the game. They add semantic assertions around the
+existing deterministic round hashes; they do not change movement, collision,
+scoring, booster, or timing rules. Scripted camera behavior remains a future
+parity gate.
+
+### Resolution-independent classic HUD
+
+The active classic two-dimensional presentation paths now use an explicit HUD
+canvas: the minimap, score, AI label, pause and winner banner, FPS display,
+console, configure-key prompt, and credits. At 800 by 600, their logical
+coordinates and sizes match the classic layout exactly. This intentionally
+preserves familiar relationships, including any legacy overlap between the
+score, AI label, and minimap, rather than using the remaster as an excuse to
+redesign them.
+
+At widescreen, ultrawide, and portrait resolutions, each player pane receives
+a centered, uniformly scaled classic canvas. That single scale keeps text and
+map proportions intact; it does not stretch one axis or reconstruct logical
+positions from rounded viewport pixels. Whole-screen messages use the same
+principle in the root display safe area. The minimap is fitted and clamped
+inside its owning canvas, including large requested map ratios, while the
+classic reduced console-line behavior at low physical resolutions remains
+unchanged.
+
+The standalone HUD geometry test locks the 800 by 600 coordinates, pane-local
+single-player, stacked, and four-way layouts, representative modern widescreen
+and portrait placements, translated viewport origins, minimap containment,
+representative text containment, and zero- or low-resolution edge handling.
+The original accidentally concatenated 94-character credit entry still clips
+at 800 by 600 exactly as it did in the classic; correcting that source data is
+separate from this layout-preservation milestone. These tests are pure geometry
+checks in addition to the production gameplay regression; they do not
+substitute for native OpenGL visual inspection.
+
 ## Regression commands
 
 Run the classic behavior and display geometry checks:
@@ -105,18 +154,22 @@ The stabilized audio matrix remains part of every remaster gate:
 
 ## Native visual verification
 
-The optimized build was exercised in the target Wayland session using the
-original default artpack and `song_revenge_of_cats.it`. At 800 by 600, the
+For the foundation milestone, the optimized build was exercised in the target
+Wayland session using the original default artpack and
+`song_revenge_of_cats.it`. At 800 by 600, the
 classic menu and a live single-player view retain their original 4:3
 composition. At 1280 by 720, the menu remains centered and unstretched, and
 live stacked split-screen and four-way views stay inside their exact tested
 viewport edges. Both native sessions shut down cleanly, and the user's
 `.gltronrc` checksum remained unchanged.
 
-The pause banner and several HUD elements still use legacy whole-screen or
-fixed-pixel placement. That visible limitation is intentionally assigned to
-the next resolution-independent HUD milestone rather than hidden by this
-foundation change.
+The HUD checkpoint was then exercised in the same native Wayland/OpenGL path.
+At 800 by 600, live and paused single-player views retain the classic map,
+score, and banner placement. At 1280 by 720, single-player, stacked, and
+four-way captures confirm that every map, score, and AI label stays inside its
+own pane while console and pause or winner text remain in the centered classic
+root frame. The temporary repository-local test binary was removed after both
+clean shutdowns, and the user's `.gltronrc` checksum was again unchanged.
 
 ## Current platform boundary
 
@@ -126,12 +179,20 @@ numbers, and SDL_sound shares SDL 1 audio and RWops types. A direct header swap
 to SDL 2 would break those contracts. The next platform layer must first create
 stable GLTron-owned input IDs and separate logical, window, and drawable sizes.
 
+The supported optimized `--enable-localdata` build passes with this HUD code.
+A separate optimized non-localdata, temporary-prefix link attempt exposed an
+unresolved legacy `dirSetup` symbol caused by static-library ordering. The
+failure occurs in the existing filesystem/archive linkage rather than the new
+HUD units, so it is recorded as a deferred platform/build concern instead of
+being folded into this presentation milestone.
+
 ## Remaster sequence before modding
 
-1. Lock additional scripted turn, collision, booster, camera, and split-screen
-   scenarios into the regression suite.
-2. Make the HUD and front end resolution-independent, with explicit anchors and
-   safe areas rather than mixed fixed pixels and screen fractions.
+1. Partially complete: scripted turn order and trail continuity, wall collision
+   and scoring timing, and booster behavior are locked. Camera and additional
+   split-screen gameplay scenarios remain future parity gates.
+2. Complete for the active classic two-dimensional paths: the HUD and front
+   end use explicit, uniformly scaled pane or root canvases and safe areas.
 3. Introduce a stable input/configuration seam, harden controller bounds and
    settings writes, then move the backend to SDL 2 without changing controls.
 4. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and

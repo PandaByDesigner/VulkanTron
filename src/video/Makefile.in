@@ -82,7 +82,7 @@ noinst_LIBRARIES = libvideo.a
 
 libvideo_a_SOURCES = \
 	artpack.c display_layout.c explosion.c fonts.c fonttex.c gamegraphics.c \
-	graphics_fx.c graphics_hud.c graphics_lights.c \
+	graphics_fx.c graphics_hud.c graphics_lights.c hud_layout.c \
 	graphics_utility.c graphics_world.c \
 	load_texture.c material.c model.c player_visual.c recognizer.c \
 	screenshot.c skybox.c texture.c trail.c trail_geometry.c \
@@ -104,7 +104,7 @@ libvideo_a_LIBADD =
 am_libvideo_a_OBJECTS = artpack.$(OBJEXT) display_layout.$(OBJEXT) \
 	explosion.$(OBJEXT) fonts.$(OBJEXT) fonttex.$(OBJEXT) gamegraphics.$(OBJEXT) \
 	graphics_fx.$(OBJEXT) graphics_hud.$(OBJEXT) \
-	graphics_lights.$(OBJEXT) graphics_utility.$(OBJEXT) \
+	graphics_lights.$(OBJEXT) hud_layout.$(OBJEXT) graphics_utility.$(OBJEXT) \
 	graphics_world.$(OBJEXT) load_texture.$(OBJEXT) \
 	material.$(OBJEXT) model.$(OBJEXT) player_visual.$(OBJEXT) recognizer.$(OBJEXT) \
 	screenshot.$(OBJEXT) skybox.$(OBJEXT) texture.$(OBJEXT) \
@@ -124,6 +124,7 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 @AMDEP_TRUE@	$(DEPDIR)/gamegraphics.Po $(DEPDIR)/graphics_fx.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_hud.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_lights.Po \
+@AMDEP_TRUE@	$(DEPDIR)/hud_layout.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_utility.Po \
 @AMDEP_TRUE@	$(DEPDIR)/graphics_world.Po \
 @AMDEP_TRUE@	$(DEPDIR)/load_texture.Po $(DEPDIR)/material.Po \
@@ -179,6 +180,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/graphics_fx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/graphics_hud.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/graphics_lights.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/hud_layout.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/graphics_utility.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/graphics_world.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/load_texture.Po@am__quote@

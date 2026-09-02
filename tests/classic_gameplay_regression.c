@@ -49,12 +49,13 @@ static uint64_t state_hash = FNV_OFFSET;
 static int configured_ai[PLAYERS] = {
   AI_COMPUTER, AI_COMPUTER, AI_COMPUTER, AI_COMPUTER
 };
+static int configured_booster_on;
 
 static float settingValue(const char *name) {
   if(strcmp(name, "speed") == 0) return TEST_SPEED;
   if(strcmp(name, "grid_size") == 0) return TEST_GRID_SIZE;
   if(strcmp(name, "erase_crashed") == 0) return 1.0f;
-  if(strcmp(name, "booster_on") == 0) return 0.0f;
+  if(strcmp(name, "booster_on") == 0) return configured_booster_on;
   if(strcmp(name, "booster_min") == 0) return 1.0f;
   if(strcmp(name, "booster_max") == 0) return 6.5f;
   if(strcmp(name, "booster_use") == 0) return 1.0f;
@@ -275,6 +276,7 @@ static void setupRound(const int ai[PLAYERS], int fast_finish) {
   fake_elapsed_time = 0;
   exit_loop_code = -1;
   state_hash = FNV_OFFSET;
+  configured_booster_on = 0;
   gSettingsCache.ai_level = 2;
   gSettingsCache.camType = CAM_TYPE_CIRCLING;
   gSettingsCache.fast_finish = fast_finish;
@@ -416,6 +418,219 @@ static void verifyQueuedEventReset(void) {
   printf("PASS: production round reset clears pending event storage\n");
 }
 
+static int runPhysicsAt(unsigned int current, unsigned int dt) {
+  game2->time.lastFrame = game2->time.current;
+  game2->time.current = current;
+  game2->time.dt = dt;
+  return Game_PhysicsStep((int) dt);
+}
+
+static int eventQueueIsEmpty(void) {
+  return game2->events.data == NULL && game2->events.next == NULL;
+}
+
+static int trailIsContinuous(const Data *data) {
+  int segment;
+
+  for(segment = 1; segment <= data->trailOffset; segment++) {
+    const segment2 *previous = &data->trails[segment - 1];
+    const segment2 *current = &data->trails[segment];
+    float previous_x = previous->vStart.v[0] + previous->vDirection.v[0];
+    float previous_y = previous->vStart.v[1] + previous->vDirection.v[1];
+
+    if(!nearlyEqual(previous_x, current->vStart.v[0]) ||
+       !nearlyEqual(previous_y, current->vStart.v[1]))
+      return 0;
+  }
+
+  return 1;
+}
+
+static void verifyScriptedHumanTurns(void) {
+  static const int two_humans[PLAYERS] = {
+    AI_HUMAN, AI_HUMAN, AI_NONE, AI_NONE
+  };
+  Data *data;
+  GameEvent *first;
+  GameEvent *second;
+  float initial_x;
+  float initial_y;
+  float before_x;
+  float before_y;
+  float final_x;
+  float final_y;
+
+  setupRound(two_humans, 0);
+  data = game->player[0].data;
+  /* Isolate turn/event semantics from the legacy same-origin wall test. */
+  data->trail_height = 0.0f;
+  getPositionFromData(&initial_x, &initial_y, data);
+
+  game2->time.current = 100;
+  createEvent(0, EVENT_TURN_LEFT);
+  createEvent(0, EVENT_TURN_RIGHT);
+
+  if(game2->events.data == NULL || game2->events.next == NULL ||
+     game2->events.next->data == NULL ||
+     game2->events.next->next == NULL ||
+     game2->events.next->next->next != NULL) {
+    fprintf(stderr, "scripted turns did not create two queued events\n");
+    exit(EXIT_FAILURE);
+  }
+
+  first = (GameEvent *) game2->events.data;
+  second = (GameEvent *) game2->events.next->data;
+  if(first->type != EVENT_TURN_LEFT || second->type != EVENT_TURN_RIGHT ||
+     first->player != 0 || second->player != 0 ||
+     first->timestamp != 100 || second->timestamp != 100 ||
+     !nearlyEqual(first->x, initial_x) ||
+     !nearlyEqual(first->y, initial_y) ||
+     !nearlyEqual(second->x, initial_x) ||
+     !nearlyEqual(second->y, initial_y)) {
+    fprintf(stderr, "scripted human turn queue order or metadata changed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(runPhysicsAt(100, 20) != 0 || !eventQueueIsEmpty()) {
+    fprintf(stderr, "scripted human turns did not drain normally\n");
+    exit(EXIT_FAILURE);
+  }
+  getPositionFromData(&final_x, &final_y, data);
+  if(data->trailOffset != 2 || data->dir != 3 || data->last_dir != 2 ||
+     data->turn_time != 100 || !trailIsContinuous(data) ||
+     !nearlyEqual(data->trails[1].vDirection.v[0], 0.0f) ||
+     !nearlyEqual(data->trails[1].vDirection.v[1], 0.0f) ||
+     final_x <= initial_x || !nearlyEqual(final_y, initial_y)) {
+    fprintf(stderr, "same-tick human turn ordering or trail continuity changed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  before_x = final_x;
+  before_y = final_y;
+  game2->time.current = 120;
+  createEvent(0, EVENT_TURN_LEFT);
+  if(runPhysicsAt(120, 20) != 0 || !eventQueueIsEmpty()) {
+    fprintf(stderr, "follow-up human turn did not drain normally\n");
+    exit(EXIT_FAILURE);
+  }
+  getPositionFromData(&final_x, &final_y, data);
+  if(data->trailOffset != 3 || data->dir != 2 || data->last_dir != 3 ||
+     data->turn_time != 120 || !trailIsContinuous(data) ||
+     !nearlyEqual(final_x, before_x) || final_y <= before_y ||
+     exit_loop_code != -1) {
+    fprintf(stderr, "follow-up human turn geometry changed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("PASS: production scripted human turn order and trail continuity\n");
+}
+
+static void verifyWallCollisionTiming(void) {
+  static const int two_humans[PLAYERS] = {
+    AI_HUMAN, AI_HUMAN, AI_NONE, AI_NONE
+  };
+  Data *crashing;
+  Data *survivor;
+  GameEvent *event;
+  float x;
+  float y;
+
+  setupRound(two_humans, 0);
+  crashing = game->player[0].data;
+  survivor = game->player[1].data;
+
+  crashing->dir = 1;
+  crashing->last_dir = 1;
+  crashing->turn_time = 0;
+  crashing->trailOffset = 0;
+  crashing->trails[0].vStart.v[0] = 0.5f;
+  crashing->trails[0].vStart.v[1] = 100.0f;
+  crashing->trails[0].vDirection.v[0] = 0.0f;
+  crashing->trails[0].vDirection.v[1] = 0.0f;
+  crashing->speed = TEST_SPEED;
+  crashing->trail_height = TRAIL_HEIGHT;
+
+  /* Keep a live scoring opponent while removing its trail as an obstacle. */
+  survivor->trail_height = 0.0f;
+
+  if(runPhysicsAt(200, 20) != 0 || game2->events.data == NULL ||
+     game2->events.next == NULL || game2->events.next->next != NULL) {
+    fprintf(stderr, "wall contact did not queue exactly one crash event\n");
+    exit(EXIT_FAILURE);
+  }
+
+  event = (GameEvent *) game2->events.data;
+  getPositionFromData(&x, &y, crashing);
+  if(event->type != EVENT_CRASH || event->player != 0 ||
+     event->timestamp != 200 || !nearlyEqual(event->x, 0.0f) ||
+     !nearlyEqual(event->y, 100.0f) || !nearlyEqual(x, 0.0f) ||
+     !nearlyEqual(y, 100.0f) || !nearlyEqual(crashing->speed, TEST_SPEED) ||
+     crashing->score != 0 || survivor->score != 0 || game->running != 2) {
+    fprintf(stderr, "wall crash was not clipped and deferred as expected\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(runPhysicsAt(220, 20) != 0 || !eventQueueIsEmpty()) {
+    fprintf(stderr, "queued wall crash did not process on the next step\n");
+    exit(EXIT_FAILURE);
+  }
+  if(!nearlyEqual(crashing->speed, SPEED_CRASHED) ||
+     crashing->score != 0 || survivor->score != 1 || game->running != 2 ||
+     !nearlyEqual(gPlayerVisuals[0].exp_radius, 0.2f) ||
+     !nearlyEqual(crashing->trail_height, 3.43f) ||
+     exit_loop_code != -1) {
+    fprintf(stderr, "wall crash score or animation timing changed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("PASS: production wall collision clipping, event, and score timing\n");
+}
+
+static void verifyBoosterUseAndRecovery(void) {
+  static const int two_humans[PLAYERS] = {
+    AI_HUMAN, AI_HUMAN, AI_NONE, AI_NONE
+  };
+  Data *data;
+
+  setupRound(two_humans, 0);
+  configured_booster_on = 1;
+  data = game->player[0].data;
+  data->boost_enabled = 1;
+
+  if(runPhysicsAt(20, 20) != 0 ||
+     !nearlyEqual(data->booster, 6.48f) ||
+     !nearlyEqual(data->speed, 12.02f) || !eventQueueIsEmpty()) {
+    fprintf(stderr, "booster use no longer drains fuel and raises speed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  data->boost_enabled = 0;
+  if(runPhysicsAt(40, 20) != 0 ||
+     !nearlyEqual(data->booster, 6.488f) ||
+     !nearlyEqual(data->speed, 12.004f) || !eventQueueIsEmpty()) {
+    fprintf(stderr, "booster release no longer regenerates and decelerates\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(runPhysicsAt(60, 20) != 0 ||
+     !nearlyEqual(data->booster, 6.496f) ||
+     !nearlyEqual(data->speed, TEST_SPEED) || !eventQueueIsEmpty()) {
+    fprintf(stderr, "booster recovery no longer clamps at base speed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(runPhysicsAt(80, 20) != 0 ||
+     !nearlyEqual(data->booster, 6.5f) ||
+     !nearlyEqual(data->speed, TEST_SPEED) || !eventQueueIsEmpty() ||
+     exit_loop_code != -1) {
+    fprintf(stderr, "booster recovery no longer caps at maximum fuel\n");
+    exit(EXIT_FAILURE);
+  }
+
+  configured_booster_on = 0;
+  printf("PASS: production booster use, release, recovery, and clamps\n");
+}
+
 static void freeGameState(void) {
   int i;
 
@@ -452,6 +667,9 @@ int main(void) {
   verifyFastFinishScheduling();
   verifyInactivePlayerReset();
   verifyQueuedEventReset();
+  verifyScriptedHumanTurns();
+  verifyWallCollisionTiming();
+  verifyBoosterUseAndRecovery();
 
   freeGameState();
   return EXIT_SUCCESS;

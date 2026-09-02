@@ -4,10 +4,10 @@
 #include "video.h"
 #include "game/game.h"
 
-extern void drawAI(Visual *d);
+extern void drawAI(const HudCanvas *canvas);
 extern void drawPause(Visual *d);
 
-extern void drawScore(Player *p, Visual *d);
+extern void drawScore(Player *p, const HudCanvas *canvas);
 extern void drawFPS(Visual *d);
 
 extern void drawConsoleLines(char *line, int call);

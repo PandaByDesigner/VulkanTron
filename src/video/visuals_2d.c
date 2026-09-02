@@ -4,11 +4,15 @@
 /* draw a 2d map */
 
 void draw2D( Visual *d ) {
-		float width, height;
-		float border_left, border_bottom;
-		int i;
+			float width, height;
+			float border_left, border_bottom;
+			float aspect;
+			int i;
 
-		float aspect = (float)d->vp_w / (float)d->vp_h;
+			if(d->vp_w <= 0 || d->vp_h <= 0)
+				return;
+
+			aspect = (float)d->vp_w / (float)d->vp_h;
 		if((float)d->vp_w / (float)game2->grid.width <
 			 (float)d->vp_h / (float)game2->grid.height) {
 				// black borders top/bottom

@@ -41,6 +41,7 @@ enum { VP_SINGLE = 0, VP_SPLIT = 1, VP_FOURWAY = 2 }; // Viewport Type;
 /* rendering stuff */
 #include "explosion.h"
 
+#include "hud_layout.h"
 #include "graphics_utility.h"
 #include "graphics_fx.h"
 #include "graphics_hud.h"

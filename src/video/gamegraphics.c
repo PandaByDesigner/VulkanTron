@@ -20,6 +20,43 @@ static int lod_dist[MAX_LOD_LEVEL + 1][LC_LOD + 1] = {
 static float SpokeColor[4] = {1.0, 1.0, 1.0, 1.0};
 static float NoSpokeColor[4] = {0.0, 0.0, 0.0, 1.0};
 
+static void initHudCanvas(HudCanvas *canvas, const Visual *display,
+                          int viewport) {
+  Visual reference_screen = { 0 };
+  Visual reference_display = { 0 };
+
+  reference_screen.w = reference_screen.vp_w =
+    (int)HUD_LAYOUT_REFERENCE_WIDTH;
+  reference_screen.h = reference_screen.vp_h =
+    (int)HUD_LAYOUT_REFERENCE_HEIGHT;
+  DisplayLayout_Viewport(&reference_display, &reference_screen,
+                         vp_x[gViewportType][viewport],
+                         vp_y[gViewportType][viewport],
+                         vp_w[gViewportType][viewport],
+                         vp_h[gViewportType][viewport]);
+  HudLayout_Canvas(canvas, display, gScreen,
+                   (float)reference_display.vp_w,
+                   (float)reference_display.vp_h);
+}
+
+static void drawMinimap(const HudCanvas *canvas) {
+  Visual minimap;
+
+  if(gSettingsCache.map_ratio_w <= 0 || gSettingsCache.map_ratio_h <= 0)
+    return;
+
+  HudLayout_Minimap(&minimap, canvas, gSettingsCache.map_ratio_w,
+                    gSettingsCache.map_ratio_h);
+  if(minimap.vp_w <= 0 || minimap.vp_h <= 0)
+    return;
+
+  glDepthMask(GL_FALSE);
+  glDisable(GL_DEPTH_TEST);
+  draw2D(&minimap);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+}
+
 void drawGame(void) {
   GLint i;
 
@@ -40,30 +77,37 @@ void drawGame(void) {
   }
 
   for(i = 0; i < vp_max[gViewportType]; i++) {
-		Player *p = game->player + viewport_content[i];
-		PlayerVisual *pV = gPlayerVisuals + viewport_content[i];
-		Visual *d = & pV->display;
-	
+			Player *p = game->player + viewport_content[i];
+			PlayerVisual *pV = gPlayerVisuals + viewport_content[i];
+			Visual *d = & pV->display;
+			HudCanvas hud;
+
     if(d->onScreen == 1) {
+			initHudCanvas(&hud, d, i);
       glViewport(d->vp_x, d->vp_y, d->vp_w, d->vp_h);
-			drawCam(p, pV);
+				drawCam(p, pV);
+				drawMinimap(&hud);
       glDisable(GL_DEPTH_TEST);
       glDepthMask(GL_FALSE);
       if (gSettingsCache.show_scores)
-				drawScore(p, d);
+					drawScore(p, &hud);
       if (gSettingsCache.show_ai_status)
-				if(p->ai->active == AI_COMPUTER)
-					drawAI(d);
+					if(p->ai->active == AI_COMPUTER)
+						drawAI(&hud);
     }
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
   }
 
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
   if (gSettingsCache.show_fps)
     drawFPS(gScreen);
 
-	if(gSettingsCache.show_console)
-		drawConsole(gScreen);
+		if(gSettingsCache.show_console)
+			drawConsole(gScreen);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
 
   /* printf("%d polys\n", polycount); */
 }
@@ -455,23 +499,6 @@ void drawCam(Player *p, PlayerVisual* pV) {
     glDisable(GL_BLEND);
     }
   }
-	/* 2d hack */
-	if(gSettingsCache.map_ratio_w > 0)
-	{
-		Visual d2d;
-		memcpy(&d2d, d, sizeof(Visual));
-		d2d.vp_w *= gSettingsCache.map_ratio_w;
-		d2d.vp_h *= gSettingsCache.map_ratio_h;
-
-		d2d.vp_x += 20;
-		d2d.vp_y += 20;
-		
-		glDepthMask(GL_FALSE);
-		glDisable(GL_DEPTH_TEST);
-		draw2D(&d2d);
-		glDepthMask(GL_TRUE);
-		glEnable(GL_DEPTH_TEST);
-	}
 }
 
 void initGLGame(void) {

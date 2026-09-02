@@ -19,6 +19,21 @@ void rasonly(Visual *d) {
   glViewport(d->vp_x, d->vp_y, d->vp_w, d->vp_h);
 }
 
+void rasonlyHud(const HudCanvas *canvas) {
+  if(canvas->viewport.vp_w <= 0 || canvas->viewport.vp_h <= 0 ||
+     canvas->width <= 0.0f || canvas->height <= 0.0f)
+    return;
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0f, canvas->width, 0.0f, canvas->height, 0.0f, 1.0f);
+  checkGLError("rasonlyHud");
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glViewport(canvas->viewport.vp_x, canvas->viewport.vp_y,
+             canvas->viewport.vp_w, canvas->viewport.vp_h);
+}
+
 
 void doPerspective(float fov, float ratio, float znear, float zfar) {
   float top;
@@ -68,4 +83,3 @@ void drawText(FontTex* ftx, int x, int y, int size, const char *text) {
   glDisable(GL_BLEND);
   polycount += 2 * strlen(text); /* quads are two triangles */
 }
-

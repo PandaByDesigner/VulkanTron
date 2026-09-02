@@ -1,12 +1,21 @@
+#include <stdio.h>
+#include <string.h>
+
 #include "video/video.h"
 #include "game/game.h"
 
-void drawAI(Visual *d) {
-  char ai[] = "computer player";
+static HudCanvas consoleCanvas;
 
-  rasonly(d);
+void drawAI(const HudCanvas *canvas) {
+  char ai[] = "computer player";
+  HudTextPlacement placement;
+
+  HudLayout_AI(&placement, canvas, strlen(ai));
+  if(placement.size <= 0)
+    return;
+  rasonlyHud(canvas);
   glColor3f(1.0, 1.0, 1.0);
-  drawText(gameFtx, d->vp_w / 4, 10, d->vp_w / (2 * strlen(ai)), ai);
+  drawText(gameFtx, placement.x, placement.y, placement.size, ai);
   /* glRasterPos2i(100, 0); */
 }
 
@@ -20,6 +29,8 @@ void drawPause(Visual *display) {
   static float lt = 0;
   float delta;
   int now;
+  HudCanvas canvas;
+  HudTextPlacement placement;
 
   now = SystemGetElapsedTime();
   delta = now - lt;
@@ -56,24 +67,36 @@ void drawPause(Visual *display) {
     message = pause;
   }
 
-  rasonly(gScreen);
-  drawText(gameFtx, display->vp_w / 6, 20, 
-	   display->vp_w / (6.0f / 4.0f * strlen(message)), message);
+  HudLayout_Canvas(&canvas, display, gScreen, HUD_LAYOUT_REFERENCE_WIDTH,
+                   HUD_LAYOUT_REFERENCE_HEIGHT);
+  HudLayout_Banner(&placement, &canvas, strlen(message));
+  if(placement.size <= 0)
+    return;
+  rasonlyHud(&canvas);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_DEPTH_TEST);
+  drawText(gameFtx, placement.x, placement.y, placement.size, message);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
 }
 
-void drawScore(Player *p, Visual *d) {
+void drawScore(Player *p, const HudCanvas *canvas) {
   char tmp[10]; /* hey, they won't reach such a score */
+  HudTextPlacement placement;
 
   sprintf(tmp, "%d", p->data->score);
-  rasonly(d);
+  HudLayout_Score(&placement, canvas, strlen(tmp));
+  if(placement.size <= 0)
+    return;
+  rasonlyHud(canvas);
   glColor4f(1.0, 1.0, 0.2f, 1.0);
-  drawText(gameFtx, 5, 5, 32, tmp);
+  drawText(gameFtx, placement.x, placement.y, placement.size, tmp);
 }
 
   
 void drawFPS(Visual *d) {
 #define FPS_HSIZE 20
-  /* draws FPS in upper left corner of Display d */
+  /* draws FPS in upper right corner of Display d */
   static int fps_h[FPS_HSIZE];
   static int pos = -FPS_HSIZE;
   static int fps_min = 0;
@@ -81,8 +104,14 @@ void drawFPS(Visual *d) {
 
   char tmp[20];
   int diff;
+  HudCanvas canvas;
+  HudTextPlacement placement;
 
-  rasonly(d);
+  HudLayout_Canvas(&canvas, d, gScreen, HUD_LAYOUT_REFERENCE_WIDTH,
+                   HUD_LAYOUT_REFERENCE_HEIGHT);
+  if(canvas.viewport.vp_w <= 0 || canvas.viewport.vp_h <= 0)
+    return;
+  rasonlyHud(&canvas);
   diff = (game2->time.dt > 0) ? game2->time.dt : 1;
 
   if(pos < 0) {
@@ -109,41 +138,37 @@ void drawFPS(Visual *d) {
 
   sprintf(tmp, "average FPS: %d", fps_avg);
   glColor4f(1.0, 0.4f, 0.2f, 1.0);
-  drawText(gameFtx, d->vp_w - 180, d->vp_h - 20, 10, tmp);
+  HudLayout_FpsLine(&placement, &canvas, 0, strlen(tmp));
+  drawText(gameFtx, placement.x, placement.y, placement.size, tmp);
   sprintf(tmp, "minimum FPS: %d", fps_min);
-  drawText(gameFtx, d->vp_w - 180, d->vp_h - 35, 10, tmp);
+  HudLayout_FpsLine(&placement, &canvas, 1, strlen(tmp));
+  drawText(gameFtx, placement.x, placement.y, placement.size, tmp);
   sprintf(tmp, "triangles: %d", polycount);
-  drawText(gameFtx, d->vp_w - 180, d->vp_h - 50, 10, tmp);
+  HudLayout_FpsLine(&placement, &canvas, 2, strlen(tmp));
+  drawText(gameFtx, placement.x, placement.y, placement.size, tmp);
 }
 
 
 void drawConsoleLines(char *line, int call) {
-#define CONSOLE_SIZE 15
-#define CONSOLE_X_OFF 20
-  int size = CONSOLE_SIZE;
   int length;
+  HudTextPlacement placement;
   /* fprintf(stdout, "%s\n", line); */
   length = strlen(line);
-  while(length * size > gScreen->vp_w / 2 - CONSOLE_X_OFF)
-    size--;
-    
-  if(*line != 0) 
-    drawText(gameFtx, CONSOLE_X_OFF, gScreen->vp_h - 20 * (call + 1),
-	     size, line);
+  HudLayout_ConsoleLine(&placement, &consoleCanvas, call, length);
+
+  if(*line != 0 && placement.size > 0)
+    drawText(gameFtx, placement.x, placement.y, placement.size, line);
 }
 
 void drawConsole(Visual *d) {
   int lines;
-  rasonly(d);
+  HudLayout_Canvas(&consoleCanvas, d, gScreen, HUD_LAYOUT_REFERENCE_WIDTH,
+                   HUD_LAYOUT_REFERENCE_HEIGHT);
+  if(consoleCanvas.viewport.vp_w <= 0 || consoleCanvas.viewport.vp_h <= 0)
+    return;
+  rasonlyHud(&consoleCanvas);
   glColor3f(1.0, 0.3f, 0.3f);
-  
-  if (gSettingsCache.softwareRendering) { 
-    lines = 1;
-  } else if (gScreen->vp_h < 600) {
-    lines = 3;
-  } else {
-    lines = 5;
-  }
-  
+  lines = HudLayout_ConsoleLineCount(&consoleCanvas,
+                                     gSettingsCache.softwareRendering);
   consoleDisplay(drawConsoleLines, lines);
 }

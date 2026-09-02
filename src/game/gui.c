@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #include "game/gltron.h"
 #include "video/display_layout.h"
@@ -119,15 +120,20 @@ void displayGui(void) {
 void displayConfigure(void) {
   char message[] = "Press a key for this action!";
   Visual display;
+  HudCanvas canvas;
+  HudTextPlacement placement;
   initGuiDisplay(&display);
   drawGuiBackground(&display);
   drawGuiLogo(&display);
   drawMenu(&display);
 
-  rasonly(&display);
+  HudLayout_Canvas(&canvas, &display, gScreen, HUD_LAYOUT_REFERENCE_WIDTH,
+                   HUD_LAYOUT_REFERENCE_HEIGHT);
+  HudLayout_Banner(&placement, &canvas, strlen(message));
+  rasonlyHud(&canvas);
   glColor3f(1.0, 1.0, 1.0);
-  drawText(guiFtx, display.vp_w / 6, 20,
-	   display.vp_w / (6.0f / 4.0f * strlen(message)), message);
+  if(placement.size > 0)
+    drawText(guiFtx, placement.x, placement.y, placement.size, message);
   SystemSwapBuffers();
 }
 
