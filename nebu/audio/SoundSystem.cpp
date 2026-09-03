@@ -1,3 +1,5 @@
+#ifndef GLTRON_NO_SOUND
+
 #include "audio/nebu_SoundSystem.h"
 
 #include <string.h>
@@ -117,3 +119,5 @@ namespace Sound {
     }
   }
 }
+
+#endif

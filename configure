@@ -655,7 +655,7 @@ Optional Features:
                           Enable optimization [default=s]
   --disable-sdltest       Do not try to compile and run a test SDL program
   --enable-localdata      Use local data directory [default=no]
-  --disable-sound         Don't compile in sound [default=off]
+  --disable-sound         Disable sound support [sound enabled by default]
   --enable-network        Experimental network mode [default=off]
 
 Optional Packages:
@@ -3326,10 +3326,22 @@ fi;
 # Check whether --enable-sound or --disable-sound was given.
 if test "${enable_sound+set}" = set; then
   enableval="$enable_sound"
-  use_sound=no
+  use_sound=$enableval
 else
   use_sound=yes
 fi;
+
+if test "x$use_sound" = xyes; then
+  gltron_sdl_version=`$SDL_CONFIG --version 2>/dev/null`
+  case "$gltron_sdl_version" in
+    2.*)
+      { { echo "$as_me: error: SDL2 audio is not enabled in this faithful-remaster checkpoint; rerun with --disable-sound" >&5
+echo "$as_me: error: SDL2 audio is not enabled in this faithful-remaster checkpoint; rerun with --disable-sound" >&2;}
+       { (exit 1); exit 1; }; }
+      ;;
+  esac
+fi
+
 if test "x$use_sound" = xyes; then
 
 echo "$as_me:3339: checking for main in -lsmpeg" >&5
@@ -3711,11 +3723,17 @@ if test $ac_cv_lib_SDL_sound_Sound_Init = yes; then
 else
   { echo "$as_me:3716: WARNING: SDL_sound not found - disabling sound" >&5
 echo "$as_me: WARNING: SDL_sound not found - disabling sound" >&2;};
-		SOUND_OBJS="sound_stubs.o sound_glue_stubs.o"
+		SOUND_OBJS="sound_stubs.o sound_glue_stubs.o";
+		cat >>confdefs.h <<\EOF
+#define GLTRON_NO_SOUND 1
+EOF
 fi
 
 else
 	SOUND_OBJS="sound_stubs.o sound_glue_stubs.o"
+	cat >>confdefs.h <<\EOF
+#define GLTRON_NO_SOUND 1
+EOF
 
 fi
 
@@ -5162,4 +5180,3 @@ if test "$no_create" != yes; then
   # would make configure fail if this is the last instruction.
   $ac_cs_success || { (exit 1); exit 1; }
 fi
-

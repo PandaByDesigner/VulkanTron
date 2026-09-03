@@ -35,6 +35,9 @@ void Sound_loadFX(void) {
 }
 
 void Sound_reloadTrack(void) {
+#ifdef GLTRON_NO_SOUND
+	return;
+#else
   char *song;
   char *path;
 	scripting_GetGlobal("settings", "current_track", NULL);
@@ -50,6 +53,7 @@ void Sound_reloadTrack(void) {
   Sound_play();
 
   free(path);
+#endif
 }
 
 void Sound_shutdown(void) {

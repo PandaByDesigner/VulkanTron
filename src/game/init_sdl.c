@@ -1,4 +1,5 @@
 #include "game/init.h"
+#include "input/nebu_input_system.h"
 
 #include "SDL.h"
 #include <stdlib.h>
@@ -6,10 +7,14 @@
 int video_initialized = 0;
 
 void audioInit(void) {
+#ifdef GLTRON_NO_SOUND
+  return;
+#else
   if(SDL_Init(SDL_INIT_AUDIO) < 0 ){
     fprintf(stderr, "Couldn't initialize SDL audio: %s\n", SDL_GetError());
     /* FIXME: disable sound system */
   }
+#endif
 }
 
 void videoInit(void) {
@@ -21,27 +26,5 @@ void videoInit(void) {
 }
 
 void inputInit(void) {
-	/* keyboard */
-  SDL_EnableKeyRepeat(0, 0); /* turn keyrepeat off */
-  
-	/* joystick */
-	if(SDL_Init(SDL_INIT_JOYSTICK) >= 0) {
-		int i;
-		SDL_Joystick *joy;
-		int joysticks = SDL_NumJoysticks();
-
-		/* FIXME: why only two joysticks? */
-		/* joystick, currently at most 2 */
-		if(joysticks > 2)
-			joysticks = 2;
-		
-		for(i = 0; i < joysticks; i++) {
-			joy = SDL_JoystickOpen(i);
-		}
-		if(i)
-			SDL_JoystickEventState(SDL_ENABLE);
-	} else {
-		const char *s = SDL_GetError();
-		fprintf(stderr, "[init] couldn't initialize joysticks: %s\n", s);
-	}
+  SystemInputInit();
 }

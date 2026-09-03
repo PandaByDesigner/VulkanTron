@@ -1,4 +1,5 @@
 #include "base/nebu_system.h"
+#include "input/nebu_input_system.h"
 
 #include "SDL.h"
 #include <stdio.h>
@@ -22,6 +23,7 @@ void SystemExit() {
   if(shutdown_callback != NULL)
     shutdown_callback();
 
+  SystemInputShutdown();
   fprintf(stderr, "[system] shutting down SDL now\n");
   SDL_Quit();
   fprintf(stderr, "[system] exiting application\n");
@@ -33,30 +35,28 @@ unsigned int SystemGetElapsedTime() {
   return SDL_GetTicks();
 }
 
+void SystemDelay(unsigned int milliseconds) {
+  SDL_Delay(milliseconds);
+}
+
 int SystemMainLoop() {
   SDL_Event event;
   
 	return_code = -1;
   while(return_code == -1) {
     while(SDL_PollEvent(&event) && current) {
-			switch(event.type) {
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-			case SDL_JOYAXISMOTION:
-			case SDL_JOYBUTTONDOWN:
-			case SDL_JOYBUTTONUP:
-			case SDL_MOUSEBUTTONUP:
-			case SDL_MOUSEBUTTONDOWN:
-			case SDL_MOUSEMOTION:
-				SystemHandleInput(&event);
-				break;
-			case SDL_QUIT:
-				SystemExit();
-				break;
-			default:
-				/* ignore event */
-				break;
-      }
+      int quit_requested = (event.type == SDL_QUIT);
+
+#if SDL_MAJOR_VERSION >= 2
+      if(event.type == SDL_WINDOWEVENT &&
+         event.window.event == SDL_WINDOWEVENT_CLOSE)
+        quit_requested = 1;
+#endif
+
+      if(quit_requested)
+        SystemExit();
+
+      SystemHandleInputEvent(&event);
     }
     if(redisplay) {
       current->display();

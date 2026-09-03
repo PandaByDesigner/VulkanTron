@@ -1,4 +1,5 @@
 #include "base/switchCallbacks.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -69,5 +70,4 @@ void setCallback(const char *name) {
 	}
 	switchCallbacks(callbackList[i]);
 }
-
 

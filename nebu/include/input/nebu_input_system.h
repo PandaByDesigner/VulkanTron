@@ -3,9 +3,6 @@
 
 #include "input/nebu_input_ids.h"
 
-#include <SDL.h>
-#include <SDL_types.h>
-
 #define SYSTEM_KEY_DOWN GLTRON_INPUT_KEY_DOWN
 #define SYSTEM_KEY_UP GLTRON_INPUT_KEY_UP
 #define SYSTEM_KEY_LEFT GLTRON_INPUT_KEY_LEFT
@@ -24,14 +21,13 @@
 #define SYSTEM_KEY_ENTER GLTRON_INPUT_KEY_RETURN
 #define SYSTEM_KEY_RETURN GLTRON_INPUT_KEY_RETURN
 
-#define SYSTEM_MOUSEUP SDL_MOUSEBUTTONUP
-#define SYSTEM_MOUSEDOWN SDL_MOUSEBUTTONDOWN
-
-#define SYSTEM_MOUSEPRESSED SDL_PRESSED
-#define SYSTEM_MOUSERELEASED SDL_RELEASED
-
-#define SYSTEM_MOUSEBUTTON_LEFT SDL_BUTTON_LEFT
-#define SYSTEM_MOUSEBUTTON_RIGHT SDL_BUTTON_RIGHT
+/* Project-owned mouse callback ABI.  The values intentionally retain SDL 1.2. */
+#define SYSTEM_MOUSEDOWN 5
+#define SYSTEM_MOUSEUP 6
+#define SYSTEM_MOUSERELEASED 0
+#define SYSTEM_MOUSEPRESSED 1
+#define SYSTEM_MOUSEBUTTON_LEFT 1
+#define SYSTEM_MOUSEBUTTON_RIGHT 3
 
 #define SYSTEM_KEY_TAB GLTRON_INPUT_KEY_TAB
 
@@ -67,11 +63,25 @@
 #define SYSTEM_JOY_BUTTON_18 GLTRON_INPUT_JOY_BUTTON_18
 #define SYSTEM_JOY_BUTTON_19 GLTRON_INPUT_JOY_BUTTON_19
 
-void SystemGrabInput();
-void SystemUngrabInput();
-
 char* SystemGetKeyName(int key);
 SystemInputId SystemInputIdFromSDL1Key(int key);
+SystemInputId SystemInputIdFromSDL2Key(int key);
+
+/* Native SDL events remain private to the selected platform implementation. */
+void SystemHandleInputEvent(const void *native_event);
+void SystemInputInit(void);
+void SystemInputShutdown(void);
+
+/* SDL2 relative motion is translated back to the centered SDL1 callback ABI. */
+void SystemInputSetRelativeMouseMode(int enabled);
+void SystemInputSetMouseAnchor(int x, int y);
+void SystemInputTranslateMouseMotion(int x, int y, int xrel, int yrel,
+											int *translated_x, int *translated_y);
+
+/* SDL 2 joystick events carry instance IDs rather than fixed device slots. */
+int SystemInputAddJoystickInstance(int instance_id);
+int SystemInputRemoveJoystickInstance(int instance_id);
+int SystemInputJoystickSlotForInstance(int instance_id);
 
 void SystemMouse(int buttons, int state, int x, int y);
 void SystemMouseMotion(int x, int y);

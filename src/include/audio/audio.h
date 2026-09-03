@@ -11,9 +11,6 @@ enum {
 	fx_highlight
 };
 
-#include "SDL.h"
-#include "SDL_sound.h"
-
 #include <zlib.h>
 #include <assert.h>
 #include <stdlib.h>

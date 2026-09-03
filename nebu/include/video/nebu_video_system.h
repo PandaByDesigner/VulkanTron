@@ -11,6 +11,8 @@
 extern void SystemPostRedisplay();
 
 extern void SystemSwapBuffers();
+extern void SystemGrabInput();
+extern void SystemUngrabInput();
 extern void SystemWarpPointer(int x, int y);
 extern void SystemHidePointer();
 extern void SystemUnhidePointer();

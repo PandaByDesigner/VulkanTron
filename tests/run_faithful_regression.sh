@@ -7,7 +7,6 @@ trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 
 cc=${CC:-cc}
 sdl_cflags=$(sdl-config --cflags)
-sdl_libs=$(sdl-config --libs)
 mode=${1:-plain}
 
 case "$mode" in
@@ -112,19 +111,6 @@ esac
   -Wl,--gc-sections \
   -lm -o "$build_dir/input-binding-regression"
 
-"$cc" -std=gnu99 -O2 -g -Wall -Wextra -Werror \
-  -Wno-unused-parameter \
-  $sanitizer_flags \
-  $sdl_cflags \
-  -I"$repo_dir/nebu/include" \
-  -I"$repo_dir/src/include" \
-  -I"$repo_dir/lua/include" \
-  "$repo_dir/tests/input_translation_test.c" \
-  "$repo_dir/nebu/input/input_system.c" \
-  "$repo_dir/nebu/input/system_keynames.c" \
-  $sdl_libs \
-  -lm -o "$build_dir/input-translation-test"
-
 if [ "$mode" = asan ]; then
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
@@ -144,9 +130,6 @@ if [ "$mode" = asan ]; then
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
     "$build_dir/input-binding-regression"
-  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
-  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-    "$build_dir/input-translation-test"
 else
   "$build_dir/classic-gameplay-regression"
   "$build_dir/local-multiplayer-regression"
@@ -154,7 +137,7 @@ else
   "$build_dir/display-layout-test"
   "$build_dir/hud-layout-test"
   "$build_dir/input-binding-regression"
-  "$build_dir/input-translation-test"
 fi
 
+"$repo_dir/tests/run_sdl_backend_regression.sh" "$mode"
 "$repo_dir/tests/run_settings_persistence_regression.sh" "$mode"

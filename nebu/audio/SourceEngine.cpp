@@ -1,3 +1,5 @@
+#ifndef GLTRON_NO_SOUND
+
 #include "audio/nebu_SourceEngine.h"
 
 namespace Sound {
@@ -8,6 +10,7 @@ namespace Sound {
   }
 }
 
+#endif
 
 
 

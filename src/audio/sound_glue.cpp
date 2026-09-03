@@ -1,11 +1,34 @@
+#include "audio/sound_glue.h"
+
+#ifdef GLTRON_NO_SOUND
+
+extern "C" {
+  void Audio_EnableEngine(void) {}
+  void Audio_DisableEngine(void) {}
+  void Audio_Idle(void) {}
+  void Audio_CrashPlayer(int) {}
+  void Audio_LoadPlayers(void) {}
+  void Audio_Init(void) {}
+  void Audio_Start(void) {}
+  void Audio_Quit(void) {}
+  void Audio_LoadSample(char *, int) {}
+  void Audio_LoadMusic(char *) {}
+  void Audio_PlayMusic(void) {}
+  void Audio_StopMusic(void) {}
+  void Audio_SetMusicVolume(float) {}
+  void Audio_SetFxVolume(float) {}
+  void Audio_StartEngine(int) {}
+  void Audio_StopEngine(int) {}
+}
+
+#else
+
 #include "Nebu_audio.h"
 
 extern "C" {
 #include "game/game.h"
 #include "video/video.h" // 3d sound engine needs to know the camera's location!
 }
-#include "audio/sound_glue.h"
-
 #include "SDL.h"
 #include "SDL_sound.h"
 
@@ -337,3 +360,5 @@ extern "C" {
     }
   }
 }
+
+#endif

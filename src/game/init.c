@@ -91,9 +91,14 @@ void initVideo(void) {
 void initAudio(void) {
 	audioInit();
 	runScript(PATH_SCRIPTS, "audio.lua");
+#ifdef GLTRON_NO_SOUND
+	/* Keep audio menu callbacks valid without probing or requiring assets. */
+	scripting_Run("tracks[1] = settings.current_track; current_track_index = 1");
+#else
   /* probe for artpacks & songs */
   Sound_initTracks();
   Sound_setup();
+#endif
   SystemSetShutdownCallback(Sound_shutdown);
 }
 	

@@ -244,10 +244,71 @@ the preference path to a temporary directory and prove serialization and write
 failures do not replace the old file; they never write the user's real
 `.gltronrc`.
 
+## SDL platform seam milestone
+
+### Dual input and window backends
+
+SDL native types no longer escape through the public input or base-system
+interfaces. The default SDL 1.2 path remains the classic release reference,
+while the same sources can now be selected with `sdl2-config`. SDL2 owns its
+window and OpenGL 2.1 context explicitly, swaps that window directly, recreates
+both objects during display changes, translates gamma values into ramps, and
+uses window-scoped mouse grabbing and warping. Timing, callback order, the
+fixed-function renderer, fullscreen mode, screenshots, and game-facing
+`System*` interfaces are unchanged.
+
+SDL2 keycodes are translated back into GLTron's stable SDL 1.2-era binding
+numbers instead of being persisted directly, including the legacy WORLD-key
+range used by international layouts. Synthetic key repeats are ignored. SDL2
+wheel events are converted to the classic button-four or button-five press and
+release pairs, while later physical buttons shift past those reserved IDs (X1
+and X2 therefore become classic buttons six and seven). Hidden, grabbed pointer
+input uses SDL2 relative mode and translates deltas back into GLTron's centered
+SDL1-era mouse callback coordinates, preserving continuous camera motion at the
+window edges.
+The first two raw joysticks retain fixed classic slots even though SDL2 events
+carry instance IDs; disconnecting one releases held axes and buttons without
+renumbering the other, and a later device can reuse the empty slot. Hats,
+game-controller remapping, extra slots, and new binding numbers are deliberately
+outside this parity milestone.
+
+### Explicit sound boundary
+
+The classic build still uses SDL 1.2 plus SDL_sound and retains the original WAV
+effects, custom 3D mixer, and `Revenge of Cats` tracker music. The installed
+SDL_sound 1.x library cannot be linked safely into an SDL2 process, so SDL2 is
+an opt-in, no-audio preview at this checkpoint. The previously ineffective
+`--disable-sound` configure option now selects a complete no-op audio backend
+that does not probe audio assets and removes SDL_sound and its codecs from the
+link. Selecting SDL2 without `--disable-sound` is rejected before the legacy
+audio dependency probes, preventing an accidental mixed SDL1/SDL2 process. The
+feature choice is emitted through the configure definitions, so normal
+make-time compiler flag overrides cannot silently re-enable sound.
+
+On the target Arch system, this preview additionally requires `sdl2-compat`,
+which provides `sdl2-config`. In keeping with the repository's legacy build
+policy, these narrowly audited fixes live directly in the retained generated
+`configure`; do not run `autoreconf` for this checkpoint.
+
+Build that preview outside the source tree with:
+
+```sh
+mkdir -p _build/sdl2
+cd _build/sdl2
+CFLAGS='-O2 -g' CXXFLAGS='-O2 -g' SDL_CONFIG=/usr/bin/sdl2-config \
+  ../../configure --enable-warn=off --enable-localdata --disable-sound
+make
+```
+
+This is not yet the replacement release build. An SDL2-native decoder, music
+rendering comparison, audio stress suite, and listening test are required before
+SDL2 becomes the default. No gameplay, physics, camera, viewport, art, sound
+asset, or saved-binding value changed in this milestone.
+
 ## Regression commands
 
-Run the classic gameplay, camera, local multiplayer, display, HUD, input, and
-settings-persistence checks:
+Run the classic gameplay, camera, local multiplayer, display, HUD, both SDL
+input adapters, and settings-persistence checks:
 
 ```sh
 ./tests/run_faithful_regression.sh plain
@@ -257,6 +318,20 @@ settings-persistence checks:
 The second command enables AddressSanitizer and UndefinedBehaviorSanitizer.
 LeakSanitizer is disabled because it cannot operate under the traced Codex
 runner. The harness releases its allocations explicitly.
+
+The SDL adapter checks can also be run independently:
+
+```sh
+./tests/run_sdl_backend_regression.sh plain
+./tests/run_sdl_backend_regression.sh asan
+```
+
+Both `sdl-config` and `sdl2-config` are prerequisites for the combined input
+gate. The full configure, compile, and dynamic-link matrix is available as:
+
+```sh
+./tests/run_sdl_build_matrix.sh
+```
 
 The stabilized audio matrix remains part of every remaster gate:
 
@@ -295,15 +370,26 @@ normal compositor close request, and exited cleanly. That close deliberately
 exercised the classic save-on-quit path; the user's pre-check `.gltronrc` was
 then restored byte-for-byte, including its mode and modification time.
 
+For the SDL platform seam, optimized SDL1 and SDL2 builds were launched through
+the same native compositor path at the configured 1600 by 1200 output, mapped
+as 800 by 600 logical pixels under the compositor's two-times scale. Both
+accepted an exact-window compositor close request and exited with status zero.
+The SDL1 reference opened the original tracker track through the classic audio
+path; the SDL2 preview started without even a `music/` directory. A second SDL2
+probe recreated its live OpenGL window and context at 1024 by 768 and then 800
+by 600 before closing normally. The user's `.gltronrc` checksum was identical
+before and after every run.
+
 ## Current platform boundary
 
-This milestone intentionally retains SDL 1.2 through `sdl12-compat` and the
-fixed-function OpenGL renderer. Existing Lua preferences store raw SDL 1 key
-numbers, and SDL_sound shares SDL 1 audio and RWops types. The new project-owned
-input IDs now isolate gameplay and saved bindings from that backend. The next
-platform layer can therefore add an SDL 2 event adapter while retaining those
-numbers, then separate logical, window, and drawable sizes without changing
-controls or viewport ownership.
+SDL 1.2 through `sdl12-compat` remains the default full-audio release reference,
+and the fixed-function OpenGL renderer remains unchanged. The opt-in SDL2
+preview now owns the native event, window, and context boundary while translating
+back to the same saved input numbers. It is deliberately silent until an
+SDL2-native decoder can reproduce the original effects and tracker music under
+the existing audio stress and listening gates. Logical window size, drawable
+size, HiDPI behavior, and modern fullscreen policy remain the next video-layer
+seams; this checkpoint does not conflate them with the backend replacement.
 
 The supported optimized `--enable-localdata` build passes with the current
 faithful-remaster code.
@@ -321,14 +407,16 @@ being folded into this presentation milestone.
    production-path regressions.
 2. Complete for the active classic two-dimensional paths: the HUD and front
    end use explicit, uniformly scaled pane or root canvases and safe areas.
-3. Input/configuration seam complete: stable IDs, bounded controller handling,
-   repeat-safe atomic preferences, and camera persistence are locked. Moving
-   the backend to SDL 2 without changing controls is next.
-4. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and
+3. Complete: the input/configuration seam and opt-in SDL2 platform adapter lock
+   stable bindings, bounded hot-plug handling, atomic preferences, classic mouse
+   semantics, and native window/context ownership without changing gameplay.
+4. Add an SDL2-native decoder and prove tracker/effect parity before making SDL2
+   the full-audio default.
+5. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and
    screenshot correctness.
-5. Create a separate high-resolution faithful artpack and fonts while keeping
+6. Create a separate high-resolution faithful artpack and fonts while keeping
    the original artpack available for direct comparison.
-6. Modernize the renderer behind screenshot and gameplay-state comparisons.
+7. Modernize the renderer behind screenshot and gameplay-state comparisons.
 
 Only after these parity gates pass does the separate creative modding phase
 begin.

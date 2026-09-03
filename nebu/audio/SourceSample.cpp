@@ -1,3 +1,5 @@
+#ifndef GLTRON_NO_SOUND
+
 #include "audio/nebu_SourceSample.h"
 
 #include <assert.h>
@@ -78,3 +80,5 @@ namespace Sound {
     return 1;
   }
 }
+
+#endif

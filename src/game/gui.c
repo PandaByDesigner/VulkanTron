@@ -140,7 +140,7 @@ void displayConfigure(void) {
 void idleGui(void) {
 	Sound_idle();
 	scripting_RunGC();
-	SDL_Delay(10);
+	SystemDelay(10);
 	Video_Idle();
 	Input_Idle();
 	SystemPostRedisplay(); /* animate menu */

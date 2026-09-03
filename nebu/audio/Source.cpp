@@ -1,3 +1,5 @@
+#ifndef GLTRON_NO_SOUND
+
 #include "audio/nebu_Source.h"
 
 namespace Sound {
@@ -41,3 +43,5 @@ namespace Sound {
   void Source::SetName(char* name) { _name = name; }
   char* Source::GetName(void) { return _name; }
 }
+
+#endif

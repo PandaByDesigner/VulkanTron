@@ -1,3 +1,5 @@
+#ifndef GLTRON_NO_SOUND
+
 #include "audio/nebu_Source3D.h"
 
 #include <assert.h>
@@ -192,3 +194,5 @@ namespace Sound {
     return 0; // didn't mix anything to the stream
   }
 }
+
+#endif
