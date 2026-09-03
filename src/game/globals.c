@@ -52,7 +52,7 @@ float camAngles[] = { PI / 2, 0, 3 * PI / 2, PI, 2 * PI };
 float cam_defaults[][3] =  { 
   { CAM_CIRCLE_DIST, PI / 3, 0 }, /* circle */
   { CAM_FOLLOW_DIST, PI / 4, PI / 72 }, /* follow */
-  { CAM_COCKPIT_Z, PI / 8, 0 }, /* cockpit */
+  { CAM_COCKPIT_Z, PI / 8, PI }, /* cockpit */
   { CAM_CIRCLE_DIST, PI / 3, 0 } /* free */
 };
 
@@ -134,5 +134,4 @@ float shadow_matrix[] = { LX * LY, 0,       0, 0,
 			  0,       0,       0, LX * LY };
 #undef LX
 #undef LY
-
 

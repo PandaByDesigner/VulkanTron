@@ -3,6 +3,7 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,25 +101,51 @@ int scripting_SetFloat(float f, const char *name, const char *global, const char
 }
 
 int scripting_GetFloatResult(float *f) {
-	if(lua_isnumber(L, -1)) {
-    *f = lua_tonumber(L, -1);
+  int top = lua_gettop(L);
+
+  if(f != NULL)
+    *f = 0.0f;
+  if(f != NULL && top > 0 && lua_isnumber(L, -1)) {
+    *f = (float)lua_tonumber(L, -1);
 		lua_pop(L, 1); /* restore stack */
 		return 0;
 	} else {
 		showStack();
+    if(top > 0)
+      lua_pop(L, 1);
     return 1;
 	}
 }  
 
+static int getIntegerResult(int *i, int strict) {
+  int top = lua_gettop(L);
+
+  if(i != NULL)
+    *i = 0;
+  if(i != NULL && top > 0 && lua_isnumber(L, -1)) {
+    double value = lua_tonumber(L, -1);
+    if(value >= INT_MIN && value <= INT_MAX) {
+      int integer = (int)value;
+      if(!strict || value == (double)integer) {
+        *i = integer;
+        lua_pop(L, 1); /* restore stack */
+        return 0;
+      }
+    }
+  }
+
+  showStack();
+  if(top > 0)
+    lua_pop(L, 1);
+  return 1;
+}
+
 int scripting_GetIntegerResult(int *i) {
-	if(lua_isnumber(L, -1)) {
-    *i = (int)lua_tonumber(L, -1);
-		lua_pop(L, 1); /* restore stack */
-		return 0;
-	} else {
-		showStack();
-		return 1;
-	}
+  return getIntegerResult(i, 0);
+}
+
+int scripting_GetStrictIntegerResult(int *i) {
+  return getIntegerResult(i, 1);
 }  
 
 void scripting_GetFloatArrayResult(float *f, int n) {
@@ -139,52 +166,107 @@ void scripting_GetFloatArrayResult(float *f, int n) {
 
 int scripting_GetStringResult(char **s) {
   int status;
-  if(lua_isstring(L, -1)) {
-    int size;
+  int top = lua_gettop(L);
+
+  if(s != NULL)
+    *s = NULL;
+  if(s != NULL && top > 0 && lua_isstring(L, -1)) {
+    size_t size;
     status = 0;
     size = lua_strlen(L, -1) + 1;
     *s = malloc( size );
-    memcpy( *s, lua_tostring(L, -1), size );
-    /* printf("allocated string '%s' of size %d\n", *s, size); */
+    if(*s != NULL) {
+      memcpy(*s, lua_tostring(L, -1), size - 1);
+      (*s)[size - 1] = '\0';
+    } else {
+      status = 2;
+    }
   } else
     status = 1;
 
-  lua_pop(L, 1);
+  if(top > 0)
+    lua_pop(L, 1);
   return status;
 }
 
 int scripting_CopyStringResult(char *s, int len) {
   int status;
-  if(lua_isstring(L, -1)) {
-    int size, copy;
+  int top = lua_gettop(L);
+
+  if(s != NULL && len > 0)
+    s[0] = '\0';
+  if(s != NULL && len > 0 && top > 0 && lua_isstring(L, -1)) {
+    size_t size, copy;
     status = 0;
-    size = lua_strlen(L, -1) + 1;
-    if(size > len) { copy = len; status = 2; }
-    else copy = size;
-    memcpy( s, lua_tostring(L, -1), size );
+    size = lua_strlen(L, -1);
+    if(size >= (size_t)len) {
+      copy = (size_t)len - 1;
+      status = 2;
+    } else {
+      copy = size;
+    }
+    memcpy(s, lua_tostring(L, -1), copy);
+    s[copy] = '\0';
   } else
     status = 1;
 
-  lua_pop(L, 1);
+  if(top > 0)
+    lua_pop(L, 1);
   return status;
 }    
 
+int scripting_RunFileChecked(const char *name) {
+  if(name == NULL)
+    return -1;
+  return lua_dofile(L, name);
+}
+
+int scripting_RunChecked(const char *command) {
+  if(command == NULL)
+    return -1;
+  /* fprintf(stderr, "[command] %s\n", command); */
+  return lua_dostring(L, command);
+}
+
+static int scripting_RunFormatV(const char *format, va_list ap) {
+  char buf[4096];
+  int written;
+
+  if(format == NULL)
+    return -1;
+  written = vsnprintf(buf, sizeof(buf), format, ap);
+  if(written < 0 || (size_t)written >= sizeof(buf)) {
+    fprintf(stderr, "[scripting] formatted command exceeds %lu bytes\n",
+            (unsigned long)(sizeof(buf) - 1));
+    return -1;
+  }
+  return scripting_RunChecked(buf);
+}
+
+int scripting_RunFormatChecked(const char *format, ... ) {
+  int status;
+  va_list ap;
+
+  va_start(ap, format);
+  status = scripting_RunFormatV(format, ap);
+  va_end(ap);
+  return status;
+}
+
 void scripting_RunFile(const char *name) {
-  lua_dofile(L, name);
+  (void)scripting_RunFileChecked(name);
 }
 
 void scripting_Run(const char *command) {
-  /* fprintf(stderr, "[command] %s\n", command); */
-  lua_dostring(L, command);
+  (void)scripting_RunChecked(command);
 }
 
 void scripting_RunFormat(const char *format, ... ) {
-  char buf[4096];
   va_list ap;
+
   va_start(ap, format);
-  vsprintf(buf, format, ap);
+  (void)scripting_RunFormatV(format, ap);
   va_end(ap);
-  scripting_Run(buf);
 }
 
 void scripting_RunGC() {

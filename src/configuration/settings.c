@@ -1,7 +1,13 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+#ifdef HAVE_MKSTEMP
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include "base/util.h"
 #include "game/gltron.h"
@@ -28,27 +34,160 @@ void checkSettings(void) {
   }
 }
 
+static int writeSettingsAtomically(const char *path, const char *contents,
+                                   size_t length) {
+#ifdef HAVE_MKSTEMP
+  static const char suffix[] = ".tmp.XXXXXX";
+  struct stat target_status;
+  FILE *output = NULL;
+  char *temporary = NULL;
+  size_t path_length;
+  size_t written = 0;
+  int descriptor = -1;
+  int have_target = 0;
+  int saved_errno = 0;
+
+  if(path == NULL || path[0] == '\0' || (contents == NULL && length != 0)) {
+    errno = EINVAL;
+    return 1;
+  }
+
+  if(stat(path, &target_status) == 0) {
+    have_target = 1;
+  } else if(errno != ENOENT) {
+    saved_errno = errno;
+    goto failed;
+  }
+
+  path_length = strlen(path);
+  if(path_length > (size_t)-1 - sizeof(suffix)) {
+    saved_errno = ENAMETOOLONG;
+    goto failed;
+  }
+  temporary = malloc(path_length + sizeof(suffix));
+  if(temporary == NULL) {
+    saved_errno = ENOMEM;
+    goto failed;
+  }
+  if(snprintf(temporary, path_length + sizeof(suffix), "%s%s",
+              path, suffix) != (int)(path_length + sizeof(suffix) - 1)) {
+    saved_errno = ENAMETOOLONG;
+    goto failed;
+  }
+
+  descriptor = mkstemp(temporary);
+  if(descriptor < 0) {
+    saved_errno = errno;
+    goto failed;
+  }
+  if(have_target &&
+     fchmod(descriptor, target_status.st_mode & (mode_t)07777) != 0) {
+    saved_errno = errno;
+    goto failed;
+  }
+
+  output = fdopen(descriptor, "wb");
+  if(output == NULL) {
+    saved_errno = errno;
+    goto failed;
+  }
+  descriptor = -1;
+
+  while(written < length) {
+    size_t count = fwrite(contents + written, 1, length - written, output);
+    written += count;
+    if(count == 0 || ferror(output)) {
+      saved_errno = errno != 0 ? errno : EIO;
+      goto failed;
+    }
+  }
+  if(fflush(output) != 0) {
+    saved_errno = errno;
+    goto failed;
+  }
+  while(fsync(fileno(output)) != 0) {
+    if(errno != EINTR) {
+      saved_errno = errno;
+      goto failed;
+    }
+  }
+  if(fclose(output) != 0) {
+    output = NULL;
+    saved_errno = errno;
+    goto failed;
+  }
+  output = NULL;
+
+  if(rename(temporary, path) != 0) {
+    saved_errno = errno;
+    goto failed;
+  }
+
+  free(temporary);
+  return 0;
+
+failed:
+  if(output != NULL)
+    fclose(output);
+  else if(descriptor >= 0)
+    close(descriptor);
+  if(temporary != NULL) {
+    unlink(temporary);
+    free(temporary);
+  }
+  errno = saved_errno != 0 ? saved_errno : EIO;
+  fprintf(stderr, "[gltron] cannot save settings to %s: %s\n",
+          path != NULL ? path : "(null)", strerror(errno));
+  return 1;
+#else
+  (void)contents;
+  (void)length;
+  fprintf(stderr,
+          "[gltron] cannot save settings to %s: atomic files unavailable\n",
+          path != NULL ? path : "(null)");
+  return 1;
+#endif
+}
+
 void saveSettings(void) {
-	char *script;
-	script = getPath(PATH_SCRIPTS, "save.lua");
-	scripting_RunFile(script);
-	free(script);
+  char *contents = NULL;
+  char *path = NULL;
+  char *script = getPath(PATH_SCRIPTS, "save.lua");
+
+  if(script == NULL) {
+    fprintf(stderr, "[gltron] cannot locate settings serializer\n");
+    return;
+  }
+  if(scripting_RunFileChecked(script) != 0) {
+    fprintf(stderr, "[gltron] cannot load settings serializer %s\n", script);
+    free(script);
+    return;
+  }
+  free(script);
+
+  if(scripting_RunChecked("return save()") != 0 ||
+     scripting_GetStringResult(&contents) != 0) {
+    fprintf(stderr, "[gltron] cannot serialize settings\n");
+    free(contents);
+    return;
+  }
 
 #ifdef WIN32
-	scripting_RunFormat("writeto(\"%s\")", "gltron.ini");
+  path = malloc(sizeof(RC_NAME));
+  if(path != NULL)
+    memcpy(path, RC_NAME, sizeof(RC_NAME));
 #else
-	{
-		char *path = getPossiblePath(PATH_PREFERENCES, RC_NAME);
-		if(path == NULL)
-			return;
-		scripting_RunFormat("writeto(\"%s\")", path);
-		free(path);
-	}
+  path = getPossiblePath(PATH_PREFERENCES, RC_NAME);
 #endif
+  if(path == NULL) {
+    fprintf(stderr, "[gltron] cannot locate preferences file\n");
+    free(contents);
+    return;
+  }
 
-	scripting_Run("save()");
-	scripting_Run("write \"save_completed = 1\\n\"");
-	scripting_Run("writeto()"); // select stdout again
+  (void)writeSettingsAtomically(path, contents, strlen(contents));
+  free(path);
+  free(contents);
 }
 
 int getSettingi(const char *name) {

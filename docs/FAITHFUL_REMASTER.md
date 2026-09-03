@@ -180,9 +180,74 @@ impact coordinates, score ownership, and crash-animation timing. No production
 camera, gameplay, AI, scoring, or viewport behavior changed in this milestone;
 the additions are regression coverage and documentation only.
 
+## Input and configuration seam milestone
+
+### Stable classic control identifiers
+
+Keyboard and joystick bindings are now GLTron-owned identifiers rather than
+constants borrowed by gameplay from the active SDL backend. Their stored
+numbers are unchanged: the keyboard domain retains the SDL 1.2 values through
+322, joystick-zero directions and buttons remain 512 through 535, and
+joystick-one remains 544 through 567. Existing `SYSTEM_*` names remain source
+aliases while backend adapters produce the stable identifiers. Key names also
+come from a checked-in classic table, so a later backend cannot reinterpret a
+saved arrow, keypad, function-key, or controller number.
+
+The SDL 1.2 adapter now validates events before indexing controller state or
+forming an identifier. Only startup slots zero and one, axes zero and one, and
+buttons zero through nineteen belong to the classic namespace; extra devices,
+axes, and buttons are ignored instead of accessing outside fixed arrays or
+colliding with another player's controls. Stick state is isolated per slot and
+axis. Repeating a held direction remains suppressed, returning to the dead zone
+releases it, and reversing directly now releases the old direction before
+pressing the new one. That reversal is an explicit controller correctness fix.
+It does not add hats, more buttons, or persistent device profiles.
+
+The configured joystick threshold is installed before the first event poll and
+is constrained to a finite zero-to-0.95 range. Keyboard dispatch is safe while
+callbacks are absent. Gameplay still checks players and actions in its original
+order, including first-player ownership of duplicate bindings, but malformed
+Lua values are initialized, type-checked, removed from the Lua stack, and
+treated as unbound instead of being compared through an uninitialized integer.
+
+### Repeat-safe atomic preferences
+
+The classic numeric `.gltronrc` schema and version remain unchanged; there is
+no settings migration or automatic rewrite on load. The Lua serializer now
+uses fresh traversal state for every save and never inserts bookkeeping fields
+into live settings. This repairs the old F5-then-quit failure in which a second
+save could emit an invalid `settings.keys` reference while still marking the
+file complete. String values and table keys are escaped, unknown fields and
+shared or cyclic table references survive, and the original top-level private
+field exclusion remains in place.
+
+On the supported POSIX build, serialization completes in memory before any
+preference file is touched. The payload is written to a same-directory
+temporary file, flushed and synchronized, then atomically renamed over the
+previous file; failures remove the temporary and retain the last good file.
+An existing file's permission mode is preserved. Checked scripting entry
+points also bound formatted commands and balance malformed results while the
+legacy call signatures remain available to unchanged code.
+
+The camera persistence defects reserved by the previous milestone are now
+corrected without adding settings fields: free-camera radius is stored only
+after clamping, and azimuth and elevation update their matching session-default
+slots. Reinitializing that camera mode therefore retains the corrected live
+values while every other mode's defaults remain untouched.
+
+The new regressions lock the compatibility numbers used by the current
+four-player configuration, controller namespace endpoints and invalid-input
+boundaries, direct reversal order, callback and mouse parity, malformed binding
+fallthrough, clamp/persist/reinitialize camera behavior, and two consecutive
+save/load cycles through the bundled Lua 4 runtime. Persistence tests redirect
+the preference path to a temporary directory and prove serialization and write
+failures do not replace the old file; they never write the user's real
+`.gltronrc`.
+
 ## Regression commands
 
-Run the classic gameplay, camera, local multiplayer, display, and HUD checks:
+Run the classic gameplay, camera, local multiplayer, display, HUD, input, and
+settings-persistence checks:
 
 ```sh
 ./tests/run_faithful_regression.sh plain
@@ -223,15 +288,25 @@ harness and this documentation. The optimized runtime and assets are unchanged,
 so the preceding native visual results remain the applicable executable
 baseline.
 
+The input and configuration seam was then built with optimization and exercised
+through the same asset-relative native Wayland/OpenGL path. GLTron mapped as an
+800 by 600 native Wayland window with the default artpack and music, accepted a
+normal compositor close request, and exited cleanly. That close deliberately
+exercised the classic save-on-quit path; the user's pre-check `.gltronrc` was
+then restored byte-for-byte, including its mode and modification time.
+
 ## Current platform boundary
 
 This milestone intentionally retains SDL 1.2 through `sdl12-compat` and the
 fixed-function OpenGL renderer. Existing Lua preferences store raw SDL 1 key
-numbers, and SDL_sound shares SDL 1 audio and RWops types. A direct header swap
-to SDL 2 would break those contracts. The next platform layer must first create
-stable GLTron-owned input IDs and separate logical, window, and drawable sizes.
+numbers, and SDL_sound shares SDL 1 audio and RWops types. The new project-owned
+input IDs now isolate gameplay and saved bindings from that backend. The next
+platform layer can therefore add an SDL 2 event adapter while retaining those
+numbers, then separate logical, window, and drawable sizes without changing
+controls or viewport ownership.
 
-The supported optimized `--enable-localdata` build passes with this HUD code.
+The supported optimized `--enable-localdata` build passes with the current
+faithful-remaster code.
 A separate optimized non-localdata, temporary-prefix link attempt exposed an
 unresolved legacy `dirSetup` symbol caused by static-library ordering. The
 failure occurs in the existing filesystem/archive linkage rather than the new
@@ -246,8 +321,9 @@ being folded into this presentation milestone.
    production-path regressions.
 2. Complete for the active classic two-dimensional paths: the HUD and front
    end use explicit, uniformly scaled pane or root canvases and safe areas.
-3. Introduce a stable input/configuration seam, harden controller bounds and
-   settings writes, then move the backend to SDL 2 without changing controls.
+3. Input/configuration seam complete: stable IDs, bounded controller handling,
+   repeat-safe atomic preferences, and camera persistence are locked. Moving
+   the backend to SDL 2 without changing controls is next.
 4. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and
    screenshot correctness.
 5. Create a separate high-resolution faithful artpack and fonts while keeping

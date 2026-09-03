@@ -12,6 +12,7 @@ extern int scripting_SetFloat(float f, const char *name, const char *global, con
 
 extern int scripting_IsNilResult();
 extern int scripting_GetIntegerResult(int *i);
+extern int scripting_GetStrictIntegerResult(int *i);
 extern int scripting_GetFloatResult(float *f);
 extern void scripting_GetFloatArrayResult(float *f, int n);
 extern int scripting_GetStringResult(char **s);
@@ -21,6 +22,9 @@ extern int scripting_CopyStringResult(char *s, int len);
 extern void scripting_RunFile(const char *name);
 extern void scripting_Run(const char *command);
 extern void scripting_RunFormat(const char *format, ...);
+extern int scripting_RunFileChecked(const char *name);
+extern int scripting_RunChecked(const char *command);
+extern int scripting_RunFormatChecked(const char *format, ...);
 extern void scripting_RunGC();
 extern void scripting_Register(const char *name, int(*func) (lua_State *L));
 

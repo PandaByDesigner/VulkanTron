@@ -105,6 +105,8 @@ void initGame(void) {
 
 void initInput(void) {
 	inputInit();
+	SystemResetJoyState();
+	SystemSetJoyThreshold(getSettingf("joy_threshold"));
 
   gInput.mouse1 = 0;
   gInput.mouse2 = 0;

@@ -68,7 +68,7 @@ static void testClassicGlobalTables(void) {
   static const float expected_defaults[CAM_COUNT][3] = {
     { 17.0f, 1.047197580f, 0.0f },
     { 18.0f, 0.785398185f, 0.043633234f },
-    { 4.0f, 0.392699093f, 0.0f },
+    { 4.0f, 0.392699093f, 3.141592741f },
     { 17.0f, 1.047197580f, 0.0f }
   };
   static const int expected_dirs_x[4] = { 0, -1, 0, 1 };
@@ -107,7 +107,7 @@ static void resetCameraDefaults(void) {
 
   cam_defaults[CAM_COCKPIT][CAM_R] = 4.0f;
   cam_defaults[CAM_COCKPIT][CAM_CHI] = 0.392699093f;
-  cam_defaults[CAM_COCKPIT][CAM_PHI] = 0.0f;
+  cam_defaults[CAM_COCKPIT][CAM_PHI] = 3.141592741f;
 
   cam_defaults[CAM_FREE][CAM_R] = 17.0f;
   cam_defaults[CAM_FREE][CAM_CHI] = 1.047197580f;
@@ -380,6 +380,19 @@ static void testInputFreedomAndClamping(void) {
               test_cameras[0].movement[CAM_PHI], -1.2f);
   expectVec3("maximum-clamped mouse camera", test_cameras[0].cam,
              115.064873f, 11.250870f, 17.220755f);
+  expectFloat("persisted maximum camera radius",
+              cam_defaults[CAM_FREE][CAM_R], 45.0f);
+  expectFloat("persisted maximum camera elevation",
+              cam_defaults[CAM_FREE][CAM_CHI], 1.178097248f);
+  expectFloat("persisted mouse camera azimuth",
+              cam_defaults[CAM_FREE][CAM_PHI], -1.2f);
+  initCamera(&test_cameras[0], &test_data[0], CAM_TYPE_MOUSE);
+  expectFloat("reinitialized maximum camera radius",
+              test_cameras[0].movement[CAM_R], 45.0f);
+  expectFloat("reinitialized maximum camera elevation",
+              test_cameras[0].movement[CAM_CHI], 1.178097248f);
+  expectFloat("reinitialized mouse camera azimuth",
+              test_cameras[0].movement[CAM_PHI], -1.2f);
 
   prepareMovement(CAM_TYPE_MOUSE);
   game2->time.dt = 12000U;
@@ -395,6 +408,19 @@ static void testInputFreedomAndClamping(void) {
               test_cameras[0].movement[CAM_PHI], 1.2f);
   expectVec3("minimum-clamped mouse camera", test_cameras[0].cam,
              100.832008f, 52.140057f, 5.543277f);
+  expectFloat("persisted minimum camera radius",
+              cam_defaults[CAM_FREE][CAM_R], 6.0f);
+  expectFloat("persisted minimum camera elevation",
+              cam_defaults[CAM_FREE][CAM_CHI], 0.392699093f);
+  expectFloat("persisted reverse mouse camera azimuth",
+              cam_defaults[CAM_FREE][CAM_PHI], 1.2f);
+  initCamera(&test_cameras[0], &test_data[0], CAM_TYPE_MOUSE);
+  expectFloat("reinitialized minimum camera radius",
+              test_cameras[0].movement[CAM_R], 6.0f);
+  expectFloat("reinitialized minimum camera elevation",
+              test_cameras[0].movement[CAM_CHI], 0.392699093f);
+  expectFloat("reinitialized reverse mouse camera azimuth",
+              test_cameras[0].movement[CAM_PHI], 1.2f);
 
   prepareMovement(CAM_TYPE_COCKPIT);
   game2->time.dt = 1000U;
@@ -407,6 +433,11 @@ static void testInputFreedomAndClamping(void) {
   expectFloat("cockpit elevation is fixed",
               test_cameras[0].movement[CAM_CHI], 0.392699093f);
   expectFloat("cockpit azimuth remains free",
+              test_cameras[0].movement[CAM_PHI], 2.841592789f);
+  expectFloat("persisted cockpit azimuth",
+              cam_defaults[CAM_COCKPIT][CAM_PHI], 2.841592789f);
+  initCamera(&test_cameras[0], &test_data[0], CAM_TYPE_COCKPIT);
+  expectFloat("reinitialized cockpit azimuth",
               test_cameras[0].movement[CAM_PHI], 2.841592789f);
 
   prepareMovement(CAM_TYPE_CIRCLING);

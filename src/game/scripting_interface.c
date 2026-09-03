@@ -7,6 +7,8 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <limits.h>
+
 int c_quitGame(lua_State *L) {
   saveSettings();
 	SystemExitLoop(RETURN_CREDITS);
@@ -85,8 +87,13 @@ int c_configureKeyboard(lua_State *L) {
 
 int c_getKeyName(lua_State *L) {
   int top = lua_gettop(L);
-  if(lua_isnumber(L, top)) {
-    lua_pushstring(L, SystemGetKeyName( (int) lua_tonumber(L, top) ));
+  if(top > 0 && lua_isnumber(L, top)) {
+    double value = lua_tonumber(L, top);
+    if(value >= INT_MIN && value <= INT_MAX &&
+       value == (double)(int)value)
+      lua_pushstring(L, SystemGetKeyName((int)value));
+    else
+      lua_pushstring(L, "error");
   } else {
     lua_pushstring(L, "error");
   }

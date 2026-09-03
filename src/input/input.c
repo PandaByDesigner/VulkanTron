@@ -21,6 +21,14 @@ int reserved_keys[] = {
   SYSTEM_KEY_DOWN
 };
 
+static int readKeyBinding(int player, const char *action, int *key) {
+	*key = 0;
+	if(scripting_RunFormatChecked("return settings.keys[%d].%s",
+								player + 1, action) != 0)
+		return 0;
+	return scripting_GetStrictIntegerResult(key) == 0;
+}
+
 void keyGame(int state, int k, int x, int y)
 {
   int i;
@@ -58,37 +66,29 @@ void keyGame(int state, int k, int x, int y)
 		if(PLAYER_IS_ACTIVE(&game->player[i]) &&
 			 !game->player[i].ai->active) {
 			int key;
-			if(state == SYSTEM_KEYSTATE_DOWN) { 
-				scripting_RunFormat("return settings.keys[%d].left", i + 1);
-				scripting_GetIntegerResult( &key );
-				if(key == k) {
+			if(state == SYSTEM_KEYSTATE_DOWN) {
+				if(readKeyBinding(i, "left", &key) && key == k) {
 					createEvent(i, EVENT_TURN_LEFT);
 					return;
 				}
-				scripting_RunFormat("return settings.keys[%d].right", i + 1);
-				scripting_GetIntegerResult( &key );
-				if(key == k) {
+				if(readKeyBinding(i, "right", &key) && key == k) {
 					createEvent(i, EVENT_TURN_RIGHT);
 					return;
 				}
 			}
 			// deal with glance keys
-			scripting_RunFormat("return settings.keys[%d].glance_left", i + 1);
-			scripting_GetIntegerResult( &key );
-			if(key == k) {
+			if(readKeyBinding(i, "glance_left", &key) && key == k) {
 				if(state == SYSTEM_KEYSTATE_DOWN) {
 					printf("glance left down\n");
 					game->player[i].camera->movement[CAM_PHI_OFFSET] = PI / 2.0f;
-				}	else {
+				} else {
 					printf("glance left up\n");
 					game->player[i].camera->movement[CAM_PHI_OFFSET] = 0;
 				}
 				return;
 			}
 			// deal with glance keys
-			scripting_RunFormat("return settings.keys[%d].glance_right", i + 1);
-			scripting_GetIntegerResult( &key );
-			if(key == k) {
+			if(readKeyBinding(i, "glance_right", &key) && key == k) {
 				if(state == SYSTEM_KEYSTATE_DOWN) {
 					printf("glance right down\n");
 					game->player[i].camera->movement[CAM_PHI_OFFSET] = - PI / 2.0f;
@@ -99,9 +99,7 @@ void keyGame(int state, int k, int x, int y)
 				return;
 			}
 			// boost
-			scripting_RunFormat("return settings.keys[%d].boost", i + 1);
-			scripting_GetIntegerResult( &key );
-			if(key == k) {
+			if(readKeyBinding(i, "boost", &key) && key == k) {
 				if(state == SYSTEM_KEYSTATE_DOWN) {
 					printf("boost down\n");
 					if(game->player[i].data->booster > getSettingf("booster_min"))

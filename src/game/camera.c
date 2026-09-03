@@ -58,7 +58,7 @@ static void initFollowCamera(Camera *cam) {
 static void initCockpitCamera(Camera *cam) {
   cam->movement[CAM_R] = cam_defaults[CAM_COCKPIT][CAM_R];
   cam->movement[CAM_CHI] = cam_defaults[CAM_COCKPIT][CAM_CHI];
-  cam->movement[CAM_PHI] = PI; // cam_defaults ignored
+  cam->movement[CAM_PHI] = cam_defaults[CAM_COCKPIT][CAM_PHI];
 	cam->movement[CAM_PHI_OFFSET] = 0;
 
   cam->type.interpolated_cam = 0;
@@ -152,19 +152,23 @@ void playerCamera(PlayerVisual *pV, Player *p) {
       cam->movement[CAM_R] += (cam->movement[CAM_R]-CLAMP_R_MIN+1) * dt / 300.0f;
     if(gInput.mouse2 == 1)
       cam->movement[CAM_R] -= (cam->movement[CAM_R]-CLAMP_R_MIN+1) * dt / 300.0f;
-    writeCamDefaults(cam, CAM_R);
   }
 
   if(cam->type.freedom[CAM_FREE_PHI]) {
     cam->movement[CAM_PHI] += - gInput.mousex * MOUSE_CX;
-    writeCamDefaults(cam, CAM_CHI);
   }
   if(cam->type.freedom[CAM_FREE_CHI]) {
     cam->movement[CAM_CHI] += gInput.mousey * MOUSE_CY;
-    writeCamDefaults(cam, CAM_PHI);
   }
   /* done with mouse movement, now clamp the camera to legal values */
   clampCam(cam);
+
+  if(cam->type.freedom[CAM_FREE_R])
+    writeCamDefaults(cam, CAM_R);
+  if(cam->type.freedom[CAM_FREE_PHI])
+    writeCamDefaults(cam, CAM_PHI);
+  if(cam->type.freedom[CAM_FREE_CHI])
+    writeCamDefaults(cam, CAM_CHI);
 
   phi = cam->movement[CAM_PHI] + cam->movement[CAM_PHI_OFFSET];
   chi = cam->movement[CAM_CHI];
