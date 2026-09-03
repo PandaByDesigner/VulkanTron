@@ -43,6 +43,41 @@ esac
   -lm -o "$build_dir/classic-gameplay-regression"
 
 "$cc" -std=gnu99 -O2 -g -Wall -Wextra \
+  -Wno-unused-parameter -Wno-absolute-value -Wno-empty-body \
+  -Wno-sign-compare -Wno-unused-but-set-variable \
+  -ffunction-sections -fdata-sections \
+  $sanitizer_flags \
+  $sdl_cflags \
+  -I"$repo_dir/nebu/include" \
+  -I"$repo_dir/src/include" \
+  -I"$repo_dir/lua/include" \
+  "$repo_dir/tests/local_multiplayer_regression.c" \
+  "$repo_dir/src/game/engine.c" \
+  "$repo_dir/src/game/event.c" \
+  "$repo_dir/src/game/computer.c" \
+  "$repo_dir/src/game/computer_utilities.c" \
+  "$repo_dir/src/game/globals.c" \
+  "$repo_dir/src/video/player_visual.c" \
+  "$repo_dir/src/video/video.c" \
+  "$repo_dir/src/video/display_layout.c" \
+  "$repo_dir/nebu/base/vector.c" \
+  "$repo_dir/nebu/base/random.c" \
+  "$repo_dir/nebu/base/util.c" \
+  -Wl,--gc-sections \
+  -lm -o "$build_dir/local-multiplayer-regression"
+
+"$cc" -std=gnu99 -O2 -g -Wall -Wextra -Werror \
+  -Wno-unused-parameter \
+  $sanitizer_flags \
+  $sdl_cflags \
+  -I"$repo_dir/nebu/include" \
+  -I"$repo_dir/src/include" \
+  "$repo_dir/tests/camera_regression.c" \
+  "$repo_dir/src/game/camera.c" \
+  "$repo_dir/src/game/globals.c" \
+  -lm -o "$build_dir/camera-regression"
+
+"$cc" -std=gnu99 -O2 -g -Wall -Wextra \
   $sanitizer_flags \
   $sdl_cflags \
   -I"$repo_dir/nebu/include" \
@@ -68,13 +103,21 @@ if [ "$mode" = asan ]; then
   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
     "$build_dir/classic-gameplay-regression"
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
-    UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$build_dir/local-multiplayer-regression"
+  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$build_dir/camera-regression"
+  ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
     "$build_dir/display-layout-test"
   ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
-    UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+  UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
     "$build_dir/hud-layout-test"
 else
   "$build_dir/classic-gameplay-regression"
+  "$build_dir/local-multiplayer-regression"
+  "$build_dir/camera-regression"
   "$build_dir/display-layout-test"
   "$build_dir/hud-layout-test"
 fi
