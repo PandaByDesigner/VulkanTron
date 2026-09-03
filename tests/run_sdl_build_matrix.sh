@@ -50,7 +50,6 @@ sdl1_config=$(command -v sdl-config)
 sdl2_config=$(command -v sdl2-config)
 sdl1_cflags=$($sdl1_config --cflags)
 sdl2_cflags=$($sdl2_config --cflags)
-diagnostic='SDL2 audio is not enabled in this faithful-remaster checkpoint; rerun with --disable-sound'
 
 configure_build() {
   build_dir=$1
@@ -121,29 +120,32 @@ reject_needed() {
   fi
 }
 
-sdl2_guard_dir=$build_root/sdl2-audio-guard
-mkdir "$sdl2_guard_dir"
-if (
-  cd "$sdl2_guard_dir"
-  SDL_CONFIG="$sdl2_config" \
-  SDL_VIDEODRIVER=dummy \
-  SDL_AUDIODRIVER=dummy \
-    "$repo_dir/configure" --disable-warn
-) >"$sdl2_guard_dir/configure.log" 2>&1; then
-  fail "SDL2 configure unexpectedly accepted sound without --disable-sound"
-fi
-grep -F "$diagnostic" "$sdl2_guard_dir/configure.log" >/dev/null || {
-  tail -n 80 "$sdl2_guard_dir/configure.log" >&2
-  fail "SDL2 configure failed without the intentional audio diagnostic"
+require_build_define() {
+  define=$1
+  build_dir=$2
+
+  grep -F -- "-D$define=1" "$build_dir/make.log" >/dev/null ||
+    fail "$define is absent from full-build compiler commands in $build_dir"
 }
-printf 'PASS: SDL2 sound guard emits the intentional diagnostic\n'
+
+reject_build_define() {
+  define=$1
+  build_dir=$2
+
+  if grep -F -- "-D$define=1" "$build_dir/make.log" >/dev/null; then
+    fail "$define unexpectedly appears in full-build compiler commands in $build_dir"
+  fi
+}
 
 sdl1_dir=$build_root/sdl1-classic
 configure_build "$sdl1_dir" "$sdl1_config"
 build_all "$sdl1_dir"
+reject_build_define GLTRON_SDL2_AUDIO "$sdl1_dir"
+reject_build_define GLTRON_NO_SOUND "$sdl1_dir"
 sdl1_needed=$sdl1_dir/gltron.needed
 write_needed "$sdl1_dir/gltron" "$sdl1_needed"
 require_needed '^libSDL-1\.2\.so' 'SDL1' "$sdl1_needed"
+reject_needed '^libSDL2-' 'SDL2' "$sdl1_needed"
 require_needed '^libSDL_sound-' 'SDL_sound' "$sdl1_needed"
 require_needed '^libmikmod' 'libmikmod' "$sdl1_needed"
 require_needed '^libvorbisfile' 'libvorbisfile' "$sdl1_needed"
@@ -159,9 +161,12 @@ sdl1_matrix_cxxflags="-O2 -g -DGLTRON_BUILD_MATRIX_CXXFLAGS=1 -I$repo_dir/lua/sr
 build_all "$sdl1_noaudio_dir" \
   "CFLAGS=$sdl1_matrix_cflags" \
   "CXXFLAGS=$sdl1_matrix_cxxflags"
+reject_build_define GLTRON_SDL2_AUDIO "$sdl1_noaudio_dir"
+require_build_define GLTRON_NO_SOUND "$sdl1_noaudio_dir"
 sdl1_noaudio_needed=$sdl1_noaudio_dir/gltron.needed
 write_needed "$sdl1_noaudio_dir/gltron" "$sdl1_noaudio_needed"
 require_needed '^libSDL-1\.2\.so' 'SDL1' "$sdl1_noaudio_needed"
+reject_needed '^libSDL2-' 'SDL2' "$sdl1_noaudio_needed"
 reject_needed '^libSDL_sound-' 'SDL_sound' "$sdl1_noaudio_needed"
 reject_needed '^libmikmod' 'libmikmod' "$sdl1_noaudio_needed"
 reject_needed '^libvorbis' 'libvorbis' "$sdl1_noaudio_needed"
@@ -169,13 +174,39 @@ reject_needed '^libogg' 'libogg' "$sdl1_noaudio_needed"
 printf 'PASS: SDL1 no-audio full build DT_NEEDED (overridden CFLAGS/CXXFLAGS)\n'
 sed 's/^/  /' "$sdl1_noaudio_needed"
 
-sdl2_dir=$build_root/sdl2-preview
-configure_build "$sdl2_dir" "$sdl2_config" --disable-sound
 matrix_cflags="-O2 -g -DSEPARATOR=47 -DGLTRON_BUILD_MATRIX_CFLAGS=1 -I$repo_dir/lua/src -I$repo_dir/lua/include $sdl2_cflags"
 matrix_cxxflags="-O2 -g -DGLTRON_BUILD_MATRIX_CXXFLAGS=1 -I$repo_dir/lua/src -I$repo_dir/lua/include $sdl2_cflags"
+
+sdl2_audio_dir=$build_root/sdl2-audio
+configure_build "$sdl2_audio_dir" "$sdl2_config"
+build_all "$sdl2_audio_dir" \
+  "CFLAGS=$matrix_cflags" \
+  "CXXFLAGS=$matrix_cxxflags"
+require_build_define GLTRON_SDL2_AUDIO "$sdl2_audio_dir"
+reject_build_define GLTRON_NO_SOUND "$sdl2_audio_dir"
+sdl2_audio_needed=$sdl2_audio_dir/gltron.needed
+write_needed "$sdl2_audio_dir/gltron" "$sdl2_audio_needed"
+require_needed '^libSDL2-' 'SDL2' "$sdl2_audio_needed"
+require_needed '^libmikmod' 'libmikmod' "$sdl2_audio_needed"
+reject_needed '^libSDL-1\.2\.so' 'SDL1' "$sdl2_audio_needed"
+reject_needed '^libSDL_sound-' 'SDL_sound' "$sdl2_audio_needed"
+reject_needed '^libSDL2_mixer' 'SDL2_mixer' "$sdl2_audio_needed"
+reject_needed '^libsmpeg' 'smpeg' "$sdl2_audio_needed"
+reject_needed '^libvorbis' 'libvorbis' "$sdl2_audio_needed"
+reject_needed '^libogg' 'libogg' "$sdl2_audio_needed"
+reject_needed '^libopenmpt' 'libopenmpt' "$sdl2_audio_needed"
+reject_needed '^libxmp' 'libxmp' "$sdl2_audio_needed"
+reject_needed '^libsndfile' 'libsndfile' "$sdl2_audio_needed"
+printf 'PASS: SDL2 full-audio build DT_NEEDED (SDL2 + libmikmod only)\n'
+sed 's/^/  /' "$sdl2_audio_needed"
+
+sdl2_dir=$build_root/sdl2-no-audio
+configure_build "$sdl2_dir" "$sdl2_config" --disable-sound
 build_all "$sdl2_dir" \
   "CFLAGS=$matrix_cflags" \
   "CXXFLAGS=$matrix_cxxflags"
+reject_build_define GLTRON_SDL2_AUDIO "$sdl2_dir"
+require_build_define GLTRON_NO_SOUND "$sdl2_dir"
 sdl2_needed=$sdl2_dir/gltron.needed
 write_needed "$sdl2_dir/gltron" "$sdl2_needed"
 require_needed '^libSDL2-' 'SDL2' "$sdl2_needed"

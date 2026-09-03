@@ -8,9 +8,28 @@ extern "C" {
 #include "audio/nebu_Source.h"
 #include "base/nebu_Vector3.h"
 
+#include "SDL.h"
+
+#ifndef GLTRON_SDL2_AUDIO
 #include "SDL_sound.h"
+#endif
 
 namespace Sound {
+  #ifdef GLTRON_SDL2_AUDIO
+  struct AudioInfo {
+    Uint16 format;
+    Uint8 channels;
+    Uint32 rate;
+  };
+  #else
+  typedef Sound_AudioInfo AudioInfo;
+  #endif
+
+  int InitDecoder();
+  void QuitDecoder();
+  void LockDecoder();
+  void UnlockDecoder();
+
   extern "C" {
     void c_callback(void *userdata, Uint8 *stream, int len);
   }
@@ -29,23 +48,29 @@ namespace Sound {
   class System {
   public:
 
-    System(SDL_AudioSpec *spec); 
+    System(SDL_AudioSpec *spec);
+    ~System();
     typedef void(*Audio_Callback)(void *userdata, Uint8* data, int len);
     Audio_Callback GetCallback() { return c_callback; };
+    int OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained);
+    void PauseAudio(int pause_on);
+    void CloseAudio();
     void Callback(Uint8* data, int len);
     void Idle(); /* remove dead sound sources */
     void AddSource(Source* source);
     void Lock();
     void Unlock();
-    Sound_AudioInfo* GetAudioInfo() { return &_info; };
+    AudioInfo* GetAudioInfo() { return &_info; };
     Listener& GetListener() { return _listener; };
     void SetMixMusic(int value) { _mix_music = value; };
     void SetMixFX(int value) { _mix_fx = value; };
     void SetStatus(int eStatus);
 
   protected:
-    SDL_AudioSpec *_spec;
-    Sound_AudioInfo _info;
+    AudioInfo _info;
+#ifdef GLTRON_SDL2_AUDIO
+    SDL_AudioDeviceID _device;
+#endif
     Listener _listener;
     List _sources;
     int _mix_music;

@@ -6,6 +6,10 @@
 #include "nebu_Source.h"
 #include "nebu_SoundSystem.h"
 
+#ifdef GLTRON_SDL2_AUDIO
+#include <mikmod.h>
+#endif
+
 namespace Sound {
   class SourceMusic : public Source {
   public:
@@ -17,7 +21,7 @@ namespace Sound {
 
   protected:
     virtual void Reset(void) {
-      if(_sample != NULL) {
+      if(HasSample()) {
 				CleanUp();
 				if(!CreateSample())
 					_isPlaying = 0;
@@ -26,11 +30,17 @@ namespace Sound {
 				_isPlaying = 0;
       }
     };
+    int HasSample(void) const;
     void CleanUp(void);
     int CreateSample(void);
 
   private:
+#ifdef GLTRON_SDL2_AUDIO
+    MODULE* _module;
+    Uint8* _sample_buffer;
+#else
     Sound_Sample* _sample;
+#endif
 		int _sample_buffersize;
 		
 		Uint8* _buffer;
@@ -39,7 +49,9 @@ namespace Sound {
     int _decoded;
 
 		char *_filename;
+#ifndef GLTRON_SDL2_AUDIO
     SDL_RWops *_rwops;
+#endif
   };
 }
 #endif

@@ -30,13 +30,16 @@ extern "C" {
 #include "video/video.h" // 3d sound engine needs to know the camera's location!
 }
 #include "SDL.h"
+#ifndef GLTRON_SDL2_AUDIO
 #include "SDL_sound.h"
+#endif
 
 static Sound::System *sound = NULL;
 static Sound::SourceMusic *music = NULL;
 static Sound::SourceSample *sample_crash = NULL;
 static Sound::SourceSample *sample_engine = NULL;
 static Sound::SourceSample *sample_recognizer = NULL;
+static int decoder_ready = 0;
 
 static Sound::Source3D *players[PLAYERS];
 static Sound::Source3D *recognizerEngine;
@@ -63,6 +66,7 @@ namespace {
 
 #define TURNLENGTH 250.0f
 
+#ifndef GLTRON_SDL2_AUDIO
 static void output_decoders(void)
 {
     const Sound_DecoderInfo **rc = Sound_AvailableDecoders();
@@ -85,6 +89,7 @@ static void output_decoders(void)
 
     printf("\n");
 } /* output_decoders */
+#endif
 
 extern "C" {
 
@@ -203,23 +208,33 @@ extern "C" {
   }
 
   void Audio_Init(void) {
-    Sound_Init(); // Init SDL_Sound
+    decoder_ready = Sound::InitDecoder();
+    if(!decoder_ready) {
+#ifdef GLTRON_SDL2_AUDIO
+      fprintf(stderr, "[error] tracker music decoder is unavailable\n");
+#else
+      fprintf(stderr, "[error] SDL_sound initialization failed: %s\n",
+              Sound_GetError());
+#endif
+    }
     // output_decoders();
 
-    SDL_AudioSpec* spec = new SDL_AudioSpec;
-    spec->freq = 22050;
-    spec->format = AUDIO_S16SYS;
-    spec->channels = 2;
-    spec->samples = 1024;
+    SDL_AudioSpec spec;
+    SDL_memset(&spec, 0, sizeof(spec));
+    spec.freq = 22050;
+    spec.format = AUDIO_S16SYS;
+    spec.channels = 2;
+    spec.samples = 1024;
 
-    sound = new Sound::System(spec);
+    sound = new Sound::System(&spec);
 
-    spec->userdata = sound;
-    spec->callback = sound->GetCallback();
+    spec.userdata = sound;
+    spec.callback = sound->GetCallback();
 
 		SDL_AudioSpec obtained;
+    SDL_memset(&obtained, 0, sizeof(obtained));
 
-    if(SDL_OpenAudio( spec, &obtained ) != 0) {
+    if(sound->OpenAudio(&spec, &obtained) != 0) {
       fprintf(stderr, "[error] %s\n", SDL_GetError());
       sound->SetStatus(Sound::eUninitialized);
     } else {
@@ -238,17 +253,47 @@ extern "C" {
   }
 
   void Audio_Start(void) {
-    SDL_PauseAudio(0);
+    if(sound != NULL)
+      sound->PauseAudio(0);
   }
 
   void Audio_Quit(void) {
-    SDL_PauseAudio(1);
+    if(sound == NULL) {
+      if(decoder_ready)
+        Sound::QuitDecoder();
+      decoder_ready = 0;
+      return;
+    }
+
+    sound->PauseAudio(1);
     sound->SetStatus(Sound::eUninitialized);
-    SDL_CloseAudio();
-    Sound_Quit();
+    sound->CloseAudio();
+
+    delete sound;
+    sound = NULL;
+    music = NULL;
+    recognizerEngine = NULL;
+    for(int i = 0; i < PLAYERS; i++)
+      players[i] = NULL;
+
+    delete sample_crash;
+    sample_crash = NULL;
+    delete sample_engine;
+    sample_engine = NULL;
+    delete sample_recognizer;
+    sample_recognizer = NULL;
+
+    if(decoder_ready)
+      Sound::QuitDecoder();
+    decoder_ready = 0;
   }
 
   void Audio_LoadMusic(char *name) {
+    if(!decoder_ready) {
+      fprintf(stderr, "[error] cannot load music without a decoder\n");
+      return;
+    }
+
     Sound::SourceMusic *new_music = new Sound::SourceMusic(sound);
     if(!new_music->Load(name)) {
       delete new_music;
@@ -341,18 +386,28 @@ extern "C" {
   }
 
   void Audio_LoadSample(char *name, int number) {
+    int can_load = 1;
+#ifndef GLTRON_SDL2_AUDIO
+    /* SDL1 effects also depend on SDL_sound; SDL2 WAV effects do not depend
+       on the tracker decoder and remain available if libmikmod cannot start. */
+    can_load = decoder_ready;
+#endif
+
     switch(number) {
     case 0:
       sample_engine = new Sound::SourceSample(sound);
-      sample_engine->Load(name);
+      if(can_load)
+        sample_engine->Load(name);
       break;
     case 1:
       sample_crash = new Sound::SourceSample(sound);
-      sample_crash->Load(name);
+      if(can_load)
+        sample_crash->Load(name);
       break;
     case 2:
       sample_recognizer = new Sound::SourceSample(sound);
-      sample_recognizer->Load(name);
+      if(can_load)
+        sample_recognizer->Load(name);
       break;
     default:
       /* programmer error, but non-critical */

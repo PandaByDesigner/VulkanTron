@@ -4,7 +4,9 @@
 #include "audio/nebu_SourceSample.h"
 
 #include <SDL.h>
+#ifndef GLTRON_SDL2_AUDIO
 #include <SDL_sound.h>
+#endif
 
 #include <atomic>
 #include <cerrno>
@@ -23,6 +25,20 @@ std::atomic<unsigned long> copies_mixed(0);
 std::atomic<unsigned long> music_destroyed(0);
 std::atomic<unsigned long> music_mixed(0);
 std::atomic<unsigned long> blocking_destroyed(0);
+
+class DecoderGuard {
+public:
+  DecoderGuard() {}
+
+  ~DecoderGuard() {
+    Sound::QuitDecoder();
+    SDL_Quit();
+  }
+
+private:
+  DecoderGuard(const DecoderGuard &);
+  DecoderGuard &operator=(const DecoderGuard &);
+};
 
 class OneShotSource : public Sound::Source {
 public:
@@ -109,9 +125,9 @@ bool drainSources(Sound::System *system,
 }
 
 void closeAudio(Sound::System *system) {
-  SDL_PauseAudio(1);
+  system->PauseAudio(1);
   system->SetStatus(Sound::eUninitialized);
-  SDL_CloseAudio();
+  system->CloseAudio();
 }
 
 bool runContentionCase(Sound::System *system, bool add_source) {
@@ -186,8 +202,18 @@ int main(int argc, char **argv) {
   unsigned long source_count = 100000;
   const unsigned long batch_size = 128;
   const char *music_path = NULL;
+#ifndef GLTRON_SDL2_AUDIO
   const char *one_shot_music_path = NULL;
+#endif
 
+#ifdef GLTRON_SDL2_AUDIO
+  if (argc > 3 || (argc >= 2 && !parseSourceCount(argv[1], &source_count))) {
+    std::fprintf(stderr,
+                 "usage: %s [positive-source-count [music-path]]\n",
+                 argv[0]);
+    return 2;
+  }
+#else
   if (argc > 4 || (argc >= 2 && !parseSourceCount(argv[1], &source_count))) {
     std::fprintf(stderr,
                  "usage: %s [positive-source-count [music-path "
@@ -195,22 +221,30 @@ int main(int argc, char **argv) {
                  argv[0]);
     return 2;
   }
+#endif
   if (argc >= 3)
     music_path = argv[2];
+#ifndef GLTRON_SDL2_AUDIO
   if (argc == 4)
     one_shot_music_path = argv[3];
+#endif
 
   if (SDL_Init(SDL_INIT_AUDIO) != 0) {
     std::fprintf(stderr, "SDL audio initialization failed: %s\n",
                  SDL_GetError());
     return 1;
   }
-  if (!Sound_Init()) {
+  if (!Sound::InitDecoder()) {
+#ifdef GLTRON_SDL2_AUDIO
+    std::fprintf(stderr, "tracker decoder initialization failed\n");
+#else
     std::fprintf(stderr, "SDL_sound initialization failed: %s\n",
                  Sound_GetError());
+#endif
     SDL_Quit();
     return 1;
   }
+  DecoderGuard decoder_guard;
 
   SDL_AudioSpec requested;
   SDL_AudioSpec obtained;
@@ -234,27 +268,21 @@ int main(int argc, char **argv) {
   if (destroyed.load() != deterministic_sources) {
     std::fprintf(stderr, "adjacent removal failed: created=%lu destroyed=%lu\n",
                  created.load(), destroyed.load());
-    Sound_Quit();
-    SDL_Quit();
     return 1;
   }
 
   requested.callback = system.GetCallback();
   requested.userdata = &system;
-  if (SDL_OpenAudio(&requested, &obtained) != 0) {
+  if (system.OpenAudio(&requested, &obtained) != 0) {
     std::fprintf(stderr, "SDL dummy audio open failed: %s\n", SDL_GetError());
-    Sound_Quit();
-    SDL_Quit();
     return 1;
   }
 
   system.SetStatus(Sound::eInitialized);
-  SDL_PauseAudio(0);
+  system.PauseAudio(0);
 
   if (!runContentionCase(&system, true) || !runContentionCase(&system, false)) {
     closeAudio(&system);
-    Sound_Quit();
-    SDL_Quit();
     return 1;
   }
 
@@ -278,8 +306,6 @@ int main(int argc, char **argv) {
                    "destroyed=%lu\n",
                    added, mixed.load(), destroyed.load());
       closeAudio(&system);
-      Sound_Quit();
-      SDL_Quit();
       return 1;
     }
   }
@@ -315,8 +341,6 @@ int main(int argc, char **argv) {
                    copies_added, copies_mixed.load(), copies_destroyed.load());
       closeAudio(&system);
       delete sample;
-      Sound_Quit();
-      SDL_Quit();
       return 1;
     }
   }
@@ -330,8 +354,6 @@ int main(int argc, char **argv) {
       delete new_music;
       closeAudio(&system);
       delete sample;
-      Sound_Quit();
-      SDL_Quit();
       return 1;
     }
     new_music->SetLoop(255);
@@ -367,13 +389,12 @@ int main(int argc, char **argv) {
                  music_mixed.load(), music_destroyed.load());
     closeAudio(&system);
     delete sample;
-    Sound_Quit();
-    SDL_Quit();
     return 1;
   }
 
-  const unsigned long one_shot_music_count =
-      one_shot_music_path == NULL ? 0 : 1;
+  unsigned long expected_music_destroyed = music_reloads;
+#ifndef GLTRON_SDL2_AUDIO
+  const unsigned long one_shot_music_count = one_shot_music_path == NULL ? 0 : 1;
   if (one_shot_music_path != NULL) {
     TrackedMusic *one_shot_music = new TrackedMusic(&system);
     if (!one_shot_music->Load(const_cast<char *>(one_shot_music_path))) {
@@ -382,8 +403,6 @@ int main(int argc, char **argv) {
       delete one_shot_music;
       closeAudio(&system);
       delete sample;
-      Sound_Quit();
-      SDL_Quit();
       return 1;
     }
     one_shot_music->SetLoop(0);
@@ -408,8 +427,6 @@ int main(int argc, char **argv) {
       std::fprintf(stderr, "one-shot music did not reach EOF\n");
       closeAudio(&system);
       delete sample;
-      Sound_Quit();
-      SDL_Quit();
       return 1;
     }
 
@@ -417,24 +434,20 @@ int main(int argc, char **argv) {
     one_shot_music->SetRemovable();
     system.Unlock();
   }
+  expected_music_destroyed += one_shot_music_count;
+#endif
 
-  const unsigned long expected_music_destroyed =
-      music_reloads + one_shot_music_count;
   if (!drainSources(&system, &music_destroyed, expected_music_destroyed,
                     5000)) {
     std::fprintf(stderr, "one-shot music drain timed out: destroyed=%lu\n",
                  music_destroyed.load());
     closeAudio(&system);
     delete sample;
-    Sound_Quit();
-    SDL_Quit();
     return 1;
   }
 
   closeAudio(&system);
   delete sample;
-  Sound_Quit();
-  SDL_Quit();
 
   const unsigned long contention_insert_sources = 1;
   const unsigned long expected_created =

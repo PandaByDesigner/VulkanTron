@@ -16,11 +16,20 @@ namespace Sound {
     assert(len < buffersize);
       
     if(len < buffersize - _position) {
+#ifdef GLTRON_SDL2_AUDIO
+      SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS, len, volume);
+#else
       SDL_MixAudio(data, buffer + _position, len, volume);
+#endif
       _position += len;
     } else { 
+#ifdef GLTRON_SDL2_AUDIO
+      SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS,
+		                 buffersize - _position, volume);
+#else
       SDL_MixAudio(data, buffer + _position, buffersize - _position,
 		   volume);
+#endif
       len -= buffersize - _position;
 
 	      if(_loop) {
@@ -28,7 +37,11 @@ namespace Sound {
 	  _loop--;
 
 	_position = 0;
+#ifdef GLTRON_SDL2_AUDIO
+	SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS, len, volume);
+#else
 	SDL_MixAudio(data, buffer + _position, len, volume);
+#endif
 	_position += len;
       } else {
 	_isPlaying = 0;

@@ -272,38 +272,61 @@ renumbering the other, and a later device can reuse the empty slot. Hats,
 game-controller remapping, extra slots, and new binding numbers are deliberately
 outside this parity milestone.
 
-### Explicit sound boundary
+### Faithful SDL2 audio backend
 
-The classic build still uses SDL 1.2 plus SDL_sound and retains the original WAV
-effects, custom 3D mixer, and `Revenge of Cats` tracker music. The installed
-SDL_sound 1.x library cannot be linked safely into an SDL2 process, so SDL2 is
-an opt-in, no-audio preview at this checkpoint. The previously ineffective
-`--disable-sound` configure option now selects a complete no-op audio backend
-that does not probe audio assets and removes SDL_sound and its codecs from the
-link. Selecting SDL2 without `--disable-sound` is rejected before the legacy
-audio dependency probes, preventing an accidental mixed SDL1/SDL2 process. The
-feature choice is emitted through the configure definitions, so normal
-make-time compiler flag overrides cannot silently re-enable sound.
+The SDL 1.2 plus SDL_sound build remains the full-audio behavior reference, and
+its SDL_sound decoding path is retained. The opt-in SDL2 build now has a native
+audio path without loading SDL 1.2 or SDL_sound into the process. SDL2 owns a
+specific output device locked to the classic 22,050 Hz, signed 16-bit stereo
+contract. It loads the three shipped
+PCM WAV effects directly, while libmikmod renders the original Impulse Tracker
+music through the same no-output software-mixing path used inside SDL_sound
+1.0.3. The existing GLTron source list, ring buffer, saturating mix order,
+music/effect toggles, crash-copy overlap, 3D attenuation, panning, and doppler
+math remain in place.
 
-On the target Arch system, this preview additionally requires `sdl2-compat`,
-which provides `sdl2-config`. In keeping with the repository's legacy build
-policy, these narrowly audited fixes live directly in the retained generated
-`configure`; do not run `autoreconf` for this checkpoint.
+The direct tracker bridge retains the reference settings: 64 voices, extended
+speed and panning enabled, module wrap and internal loop disabled, reverb one,
+and classic application-level loop/restart behavior. Decoder operations are
+serialized because libmikmod's player is process-global. Replaced modules are
+reclaimed during normal idle processing. This checkpoint registers only the
+Impulse Tracker loader needed by the shipped `song_revenge_of_cats.it`;
+broader content-format support belongs to the later modding layer. At
+shutdown, the device stops before the remaining modules are destroyed, and
+every module is destroyed before libmikmod exits. The unused OGG effect copies
+remain unmodified.
 
-Build that preview outside the source tree with:
+Two independent comparisons protect the result. The raw decoder gate proves
+that every effect has identical PCM and that the first 4 MiB of tracker output
+has canonical FNV-1a digest `cdc7967bc48612e9`. Both tracker paths reached EOF
+at 25,755,648 bytes in the current verification; the gate permits at most one
+fixed 8,192-byte decode-block difference. The production-object gate then
+repeats the comparison through `SourceSample` and `SourceMusic::Idle` plus
+`Mix`, including a finite loop restart and final EOF.
+
+`--disable-sound` still selects the complete no-op backend and does not probe
+audio assets. Configure emits `GLTRON_SDL2_AUDIO` only for SDL2 full audio and
+requires libmikmod there. The four-way build matrix proves that SDL1 full audio
+retains its legacy codec link, both disabled builds contain no decoder library,
+and SDL2 full audio links only SDL2 plus libmikmod for sound. In keeping with
+the repository's legacy build policy, these narrowly audited fixes live
+directly in the retained generated `configure`; do not run `autoreconf` for
+this checkpoint.
+
+On the target Arch system, install `sdl2-compat` (which provides
+`sdl2-config`) and `libmikmod`, then build outside the source tree with:
 
 ```sh
 mkdir -p _build/sdl2
 cd _build/sdl2
 CFLAGS='-O2 -g' CXXFLAGS='-O2 -g' SDL_CONFIG=/usr/bin/sdl2-config \
-  ../../configure --enable-warn=off --enable-localdata --disable-sound
+  ../../configure --enable-warn=off --enable-localdata
 make
 ```
 
-This is not yet the replacement release build. An SDL2-native decoder, music
-rendering comparison, audio stress suite, and listening test are required before
-SDL2 becomes the default. No gameplay, physics, camera, viewport, art, sound
-asset, or saved-binding value changed in this milestone.
+SDL2 remains explicitly selected rather than becoming the default in this
+checkpoint. No gameplay, physics, camera, viewport, art, sound asset, or
+saved-binding value changed in this milestone.
 
 ## Regression commands
 
@@ -333,13 +356,22 @@ gate. The full configure, compile, and dynamic-link matrix is available as:
 ./tests/run_sdl_build_matrix.sh
 ```
 
-The stabilized audio matrix remains part of every remaster gate:
+Compare the raw decoders and the real GLTron audio objects independently:
+
+```sh
+./tests/run_audio_decoder_parity.sh
+./tests/run_audio_production_parity.sh plain
+./tests/run_audio_production_parity.sh asan
+```
+
+The stabilized source-list stress matrix now runs both SDL1 and SDL2 in every
+mode and remains part of every remaster gate:
 
 ```sh
 ./tests/run_audio_stress.sh all
 ```
 
-## Native visual verification
+## Native visual and audio verification
 
 For the foundation milestone, the optimized build was exercised in the target
 Wayland session using the original default artpack and
@@ -380,16 +412,32 @@ probe recreated its live OpenGL window and context at 1024 by 768 and then 800
 by 600 before closing normally. The user's `.gltronrc` checksum was identical
 before and after every run.
 
+For the faithful audio checkpoint, optimized full-audio SDL1 and SDL2 builds
+were launched against isolated copies of the same known-good configuration,
+with music enabled and the shipped Impulse Tracker song selected. Each mapped
+an 800 by 600 native Wayland window, opened an active signed 16-bit stereo
+PipeWire stream routed to the Fire TV output, reported zero errors on its
+application stream, accepted a normal compositor close, and exited with status
+zero. Separate two-second, 96,000-frame captures from each application stream
+were non-silent: the SDL1 reference measured -5.80 dBFS peak and -19.03 dBFS
+RMS, while SDL2 measured -5.39 dBFS peak and -17.62 dBFS RMS. These captures
+were intentionally taken at different positions in the song, so the offline
+decoder and production-object hashes remain the authoritative exact-parity
+checks. The user's real `.gltronrc` retained its original checksum, mode, size,
+and modification time.
+
 ## Current platform boundary
 
-SDL 1.2 through `sdl12-compat` remains the default full-audio release reference,
-and the fixed-function OpenGL renderer remains unchanged. The opt-in SDL2
-preview now owns the native event, window, and context boundary while translating
-back to the same saved input numbers. It is deliberately silent until an
-SDL2-native decoder can reproduce the original effects and tracker music under
-the existing audio stress and listening gates. Logical window size, drawable
-size, HiDPI behavior, and modern fullscreen policy remain the next video-layer
-seams; this checkpoint does not conflate them with the backend replacement.
+SDL 1.2 through `sdl12-compat` remains the default release reference, and the
+fixed-function OpenGL renderer remains unchanged. The opt-in SDL2 path now owns
+the native event, window, context, audio-device, WAV-loading, and tracker-decoder
+boundaries while translating back to the same input numbers and preserving the
+classic mix. SDL2's faithful checkpoint intentionally supports the shipped
+Impulse Tracker music; SDL1 remains the compatibility reference for other
+SDL_sound/libmikmod module formats until the content/modding phase. Logical
+window size, drawable size, HiDPI behavior, and modern fullscreen policy remain
+the next video-layer seams; this checkpoint does not conflate them with the
+backend replacement.
 
 The supported optimized `--enable-localdata` build passes with the current
 faithful-remaster code.
@@ -410,8 +458,9 @@ being folded into this presentation milestone.
 3. Complete: the input/configuration seam and opt-in SDL2 platform adapter lock
    stable bindings, bounded hot-plug handling, atomic preferences, classic mouse
    semantics, and native window/context ownership without changing gameplay.
-4. Add an SDL2-native decoder and prove tracker/effect parity before making SDL2
-   the full-audio default.
+4. Complete: SDL2-native device, effect, and tracker paths reproduce the
+   original assets through raw-decoder, production-mixer, lifecycle, stress,
+   sanitizer, and link-surface gates.
 5. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and
    screenshot correctness.
 6. Create a separate high-resolution faithful artpack and fonts while keeping

@@ -3335,14 +3335,73 @@ if test "x$use_sound" = xyes; then
   gltron_sdl_version=`$SDL_CONFIG --version 2>/dev/null`
   case "$gltron_sdl_version" in
     2.*)
-      { { echo "$as_me: error: SDL2 audio is not enabled in this faithful-remaster checkpoint; rerun with --disable-sound" >&5
-echo "$as_me: error: SDL2 audio is not enabled in this faithful-remaster checkpoint; rerun with --disable-sound" >&2;}
-       { (exit 1); exit 1; }; }
-      ;;
-  esac
-fi
+      echo "$as_me:3339: checking for MikMod_Init in -lmikmod" >&5
+echo $ECHO_N "checking for MikMod_Init in -lmikmod... $ECHO_C" >&6
+if test "${ac_cv_lib_mikmod_MikMod_Init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lmikmod  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line 3347 "configure"
+#include "confdefs.h"
 
-if test "x$use_sound" = xyes; then
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char MikMod_Init ();
+int
+main ()
+{
+MikMod_Init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:3366: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:3369: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:3372: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:3375: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_mikmod_MikMod_Init=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_lib_mikmod_MikMod_Init=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:3386: result: $ac_cv_lib_mikmod_MikMod_Init" >&5
+echo "${ECHO_T}$ac_cv_lib_mikmod_MikMod_Init" >&6
+if test $ac_cv_lib_mikmod_MikMod_Init = yes; then
+  cat >>confdefs.h <<EOF
+#define HAVE_LIBMIKMOD 1
+EOF
+
+  cat >>confdefs.h <<\EOF
+#define GLTRON_SDL2_AUDIO 1
+EOF
+
+  LIBS="-lmikmod $LIBS"
+  SOUND_OBJS="sound.o sound_glue.o Source.o Source3D.o SourceMusic.o SourceSample.o SoundSystem.o SourceCopy.o SourceEngine.o"
+else
+  { { echo "$as_me:3398: error: libmikmod is required for SDL2 sound; install libmikmod or rerun with --disable-sound" >&5
+echo "$as_me: error: libmikmod is required for SDL2 sound; install libmikmod or rerun with --disable-sound" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+      ;;
+    *)
 
 echo "$as_me:3339: checking for main in -lsmpeg" >&5
 echo $ECHO_N "checking for main in -lsmpeg... $ECHO_C" >&6
@@ -3729,6 +3788,8 @@ echo "$as_me: WARNING: SDL_sound not found - disabling sound" >&2;};
 EOF
 fi
 
+      ;;
+  esac
 else
 	SOUND_OBJS="sound_stubs.o sound_glue_stubs.o"
 	cat >>confdefs.h <<\EOF
