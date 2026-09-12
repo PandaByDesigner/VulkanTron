@@ -1,11 +1,45 @@
 #include "input/nebu_input_system.h"
 #include "base/nebu_system.h"
 
+#ifdef GLTRON_USE_SDL3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+
+#if SDL_MAJOR_VERSION >= 3
+#define INPUT_KEY_DOWN SDL_EVENT_KEY_DOWN
+#define INPUT_KEY_UP SDL_EVENT_KEY_UP
+#define INPUT_JOY_AXIS SDL_EVENT_JOYSTICK_AXIS_MOTION
+#define INPUT_JOY_BUTTON_DOWN SDL_EVENT_JOYSTICK_BUTTON_DOWN
+#define INPUT_JOY_BUTTON_UP SDL_EVENT_JOYSTICK_BUTTON_UP
+#define INPUT_MOUSE_BUTTON_DOWN SDL_EVENT_MOUSE_BUTTON_DOWN
+#define INPUT_MOUSE_BUTTON_UP SDL_EVENT_MOUSE_BUTTON_UP
+#define INPUT_MOUSE_MOTION SDL_EVENT_MOUSE_MOTION
+#define INPUT_MOUSE_WHEEL SDL_EVENT_MOUSE_WHEEL
+#define INPUT_JOY_REMOVED SDL_EVENT_JOYSTICK_REMOVED
+#define INPUT_KEY_A SDLK_A
+#define nativeKeyToStable SystemInputIdFromSDL3Key
+#else
+#define INPUT_KEY_DOWN SDL_KEYDOWN
+#define INPUT_KEY_UP SDL_KEYUP
+#define INPUT_JOY_AXIS SDL_JOYAXISMOTION
+#define INPUT_JOY_BUTTON_DOWN SDL_JOYBUTTONDOWN
+#define INPUT_JOY_BUTTON_UP SDL_JOYBUTTONUP
+#define INPUT_MOUSE_BUTTON_DOWN SDL_MOUSEBUTTONDOWN
+#define INPUT_MOUSE_BUTTON_UP SDL_MOUSEBUTTONUP
+#define INPUT_MOUSE_MOTION SDL_MOUSEMOTION
+#define INPUT_KEY_A SDLK_a
+#if SDL_MAJOR_VERSION >= 2
+#define INPUT_MOUSE_WHEEL SDL_MOUSEWHEEL
+#define INPUT_JOY_REMOVED SDL_JOYDEVICEREMOVED
+#define nativeKeyToStable SystemInputIdFromSDL2Key
+#endif
+#endif
 
 #define CAPTURE_MAX 32
 
@@ -371,33 +405,42 @@ static int checkKeyboardAdapter(void) {
 
 	for(key = GLTRON_INPUT_KEY_UNKNOWN;
 		key <= GLTRON_INPUT_KEY_WORLD_LAST; key++) {
-		CHECK(SystemInputIdFromSDL2Key(key) == key,
+		CHECK(nativeKeyToStable(key) == key,
 			"SDL2 ASCII/Latin-1 mapping changed");
 	}
 	for(i = 0; i < sizeof(special_keys) / sizeof(special_keys[0]); i++) {
-		CHECK(SystemInputIdFromSDL2Key(special_keys[i].native_key) ==
+		CHECK(nativeKeyToStable(special_keys[i].native_key) ==
 				special_keys[i].stable_key,
 			"SDL2 special-key mapping changed");
 	}
 	for(i = 0; i < sizeof(world_keys) / sizeof(world_keys[0]); i++) {
-		CHECK(SystemInputIdFromSDL2Key(world_keys[i].unicode_key) ==
+		CHECK(nativeKeyToStable(world_keys[i].unicode_key) ==
 				world_keys[i].stable_key,
 			"SDL2 international WORLD-key mapping changed");
 	}
-	CHECK(SystemInputIdFromSDL2Key(-1) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(-1) == GLTRON_INPUT_INVALID,
 			"negative SDL2 key was accepted");
-	CHECK(SystemInputIdFromSDL2Key(SDLK_CURRENCYUNIT) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(SDLK_CURRENCYUNIT) == GLTRON_INPUT_INVALID,
 			"generic currency key was guessed as the Euro key");
-	CHECK(SystemInputIdFromSDL2Key(0x1f600) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(0x1f600) == GLTRON_INPUT_INVALID,
 			"unmapped SDL2 Unicode key entered the classic ID space");
-	CHECK(SystemInputIdFromSDL2Key(SDLK_F16) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(SDLK_F16) == GLTRON_INPUT_INVALID,
 			"SDL2-only function key entered the classic ID space");
-	CHECK(SystemInputIdFromSDL2Key(SDLK_CANCEL) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(SDLK_CANCEL) == GLTRON_INPUT_INVALID,
 			"SDL2 cancel key was guessed as the classic break key");
-	CHECK(SystemInputIdFromSDL2Key(INT_MAX) == GLTRON_INPUT_INVALID,
+	CHECK(nativeKeyToStable(INT_MAX) == GLTRON_INPUT_INVALID,
 			"out-of-range SDL2 key was accepted");
+#if SDL_MAJOR_VERSION >= 3
+	CHECK(nativeKeyToStable(UINT32_MAX) == GLTRON_INPUT_INVALID &&
+			nativeKeyToStable(0x80000000u) == GLTRON_INPUT_INVALID,
+			"SDL3 unsigned key overflow entered the classic ID space");
+	CHECK(nativeKeyToStable(SDLK_MULTI_KEY_COMPOSE) == GLTRON_INPUT_KEY_COMPOSE &&
+			nativeKeyToStable(SDLK_LMETA) == GLTRON_INPUT_KEY_LMETA &&
+			nativeKeyToStable(SDLK_RMETA) == GLTRON_INPUT_KEY_RMETA,
+			"SDL3 explicit extended keys did not retain classic IDs");
+#endif
 #else
-	CHECK(SystemInputIdFromSDL1Key(SDLK_a) == 97, "letter mapping changed");
+	CHECK(SystemInputIdFromSDL1Key(INPUT_KEY_A) == 97, "letter mapping changed");
 	CHECK(SystemInputIdFromSDL1Key(SDLK_SPACE) == 32, "space mapping changed");
 	CHECK(SystemInputIdFromSDL1Key(SDLK_ESCAPE) == 27,
 			"escape mapping changed");
@@ -455,7 +498,10 @@ static int checkKeyboardAdapter(void) {
 static void makeKeyEvent(SDL_Event *event, int type, int key, int repeat) {
 	memset(event, 0, sizeof(*event));
 	event->type = (Uint32)type;
-#if SDL_MAJOR_VERSION >= 2
+#if SDL_MAJOR_VERSION >= 3
+	event->key.key = (SDL_Keycode)key;
+	event->key.repeat = repeat != 0;
+#elif SDL_MAJOR_VERSION >= 2
 	event->key.keysym.sym = (SDL_Keycode)key;
 	event->key.repeat = (Uint8)repeat;
 #else
@@ -480,28 +526,28 @@ static int checkSystemDispatch(void) {
 	callbacks.mouseMotion = captureMouseMotion;
 
 	current = NULL;
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_a, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, INPUT_KEY_A, 0);
 	SystemHandleInputEvent(NULL);
 	SystemHandleInputEvent(&event);
 
 	current = &callbacks;
 	resetCapture();
-	makeKeyEvent(&event, SDL_KEYDOWN, -1, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, -1, 0);
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 0,
 			"out-of-domain SDL1 key emitted a stable ID");
 
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_UNKNOWN, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, SDLK_UNKNOWN, 0);
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 1 &&
 			captured_keys[0].id == GLTRON_INPUT_KEY_UNKNOWN,
 			"classic SDL unknown-key dispatch changed");
 	resetCapture();
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_a, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, INPUT_KEY_A, 0);
 	SystemHandleInputEvent(&event);
-	makeKeyEvent(&event, SDL_KEYUP, SDLK_a, 0);
+	makeKeyEvent(&event, INPUT_KEY_UP, INPUT_KEY_A, 0);
 	SystemHandleInputEvent(&event);
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_LEFT, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, SDLK_LEFT, 0);
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 3, "keyboard dispatch count changed");
 	CHECK(captured_keys[0].state == SYSTEM_KEYSTATE_DOWN &&
@@ -513,9 +559,9 @@ static int checkSystemDispatch(void) {
 
 #if SDL_MAJOR_VERSION >= 2
 	resetCapture();
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_a, 1);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, INPUT_KEY_A, 1);
 	SystemHandleInputEvent(&event);
-	makeKeyEvent(&event, SDL_KEYUP, SDLK_a, 1);
+	makeKeyEvent(&event, INPUT_KEY_UP, INPUT_KEY_A, 1);
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 0, "SDL2 key repeat was not suppressed");
 
@@ -526,6 +572,13 @@ static int checkSystemDispatch(void) {
 	invalid_joy = 9999;
 	CHECK(SystemInputAddJoystickInstance(-1) == -1,
 			"negative SDL2 instance ID was accepted");
+	CHECK(SystemInputAddJoystickInstance(INT64_MAX) == -1 &&
+			SystemInputAddJoystickInstance((int64_t)UINT32_MAX + 1) == -1,
+			"out-of-domain joystick instance ID was accepted");
+#if SDL_MAJOR_VERSION >= 3
+	CHECK(SystemInputAddJoystickInstance(0) == -1,
+			"SDL3 invalid zero instance ID was accepted");
+#endif
 	CHECK(SystemInputJoystickSlotForInstance(-1) == -1 &&
 			SystemInputRemoveJoystickInstance(-1) == -1,
 			"negative SDL2 instance ID matched or removed a slot");
@@ -547,7 +600,7 @@ static int checkSystemDispatch(void) {
 	SystemResetJoyState();
 	SystemSetJoyThreshold(0.10f);
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_JOYAXISMOTION;
+	event.type = INPUT_JOY_AXIS;
 	event.jaxis.which = joy0;
 	event.jaxis.axis = 0;
 	event.jaxis.value = -20000;
@@ -582,7 +635,7 @@ static int checkSystemDispatch(void) {
 	CHECK(captured_key_count == 0, "invalid runtime axis produced an event");
 
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_JOYBUTTONDOWN;
+	event.type = INPUT_JOY_BUTTON_DOWN;
 	event.jbutton.which = joy0;
 	event.jbutton.button = 20;
 	SystemHandleInputEvent(&event);
@@ -598,12 +651,12 @@ static int checkSystemDispatch(void) {
 	SystemResetJoyState();
 	resetCapture();
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_JOYAXISMOTION;
+	event.type = INPUT_JOY_AXIS;
 	event.jaxis.which = joy0;
 	event.jaxis.axis = 0;
 	event.jaxis.value = -20000;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_JOYBUTTONDOWN;
+	event.type = INPUT_JOY_BUTTON_DOWN;
 	event.jbutton.which = joy0;
 	event.jbutton.button = 3;
 	SystemHandleInputEvent(&event);
@@ -627,24 +680,24 @@ static int checkSystemDispatch(void) {
 
 	resetCapture();
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_JOYAXISMOTION;
+	event.type = INPUT_JOY_AXIS;
 	event.jaxis.which = joy0;
 	event.jaxis.axis = 0;
 	event.jaxis.value = -20000;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_JOYBUTTONDOWN;
+	event.type = INPUT_JOY_BUTTON_DOWN;
 	event.jbutton.which = joy0;
 	event.jbutton.button = 3;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 0,
 			"stale events from a removed SDL2 instance were dispatched");
 
-	event.type = SDL_JOYAXISMOTION;
+	event.type = INPUT_JOY_AXIS;
 	event.jaxis.which = joy2;
 	event.jaxis.axis = 0;
 	event.jaxis.value = -20000;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_JOYBUTTONDOWN;
+	event.type = INPUT_JOY_BUTTON_DOWN;
 	event.jbutton.which = joy2;
 	event.jbutton.button = 3;
 	SystemHandleInputEvent(&event);
@@ -657,7 +710,7 @@ static int checkSystemDispatch(void) {
 
 	resetCapture();
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_JOYDEVICEREMOVED;
+	event.type = INPUT_JOY_REMOVED;
 	event.jdevice.which = joy2;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 2 &&
@@ -673,15 +726,19 @@ static int checkSystemDispatch(void) {
 
 	resetCapture();
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_MOUSEBUTTONDOWN;
+	event.type = INPUT_MOUSE_BUTTON_DOWN;
 	event.button.button = SDL_BUTTON_LEFT;
+#if SDL_MAJOR_VERSION >= 3
+	event.button.down = true;
+#else
 	event.button.state = SDL_PRESSED;
+#endif
 	event.button.x = 17;
 	event.button.y = 23;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_mouse_count == 1 &&
 			captured_mouse_button == SDL_BUTTON_LEFT &&
-			captured_mouse_state == SDL_PRESSED &&
+			captured_mouse_state == SYSTEM_MOUSEPRESSED &&
 			captured_mouse_x == 17 && captured_mouse_y == 23,
 			"mouse button semantics changed");
 
@@ -690,10 +747,20 @@ static int checkSystemDispatch(void) {
 		int mouse_x;
 		int mouse_y;
 
+#if SDL_MAJOR_VERSION >= 3
+		{
+			float x;
+			float y;
+			SDL_GetMouseState(&x, &y);
+			mouse_x = (int)x;
+			mouse_y = (int)y;
+		}
+#else
 		SDL_GetMouseState(&mouse_x, &mouse_y);
+#endif
 		resetCapture();
 		memset(&event, 0, sizeof(event));
-		event.type = SDL_MOUSEWHEEL;
+		event.type = INPUT_MOUSE_WHEEL;
 		event.wheel.x = 3;
 		event.wheel.y = 2;
 		event.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
@@ -713,7 +780,7 @@ static int checkSystemDispatch(void) {
 
 		resetCapture();
 		memset(&event, 0, sizeof(event));
-		event.type = SDL_MOUSEWHEEL;
+		event.type = INPUT_MOUSE_WHEEL;
 		event.wheel.y = -1;
 		SystemHandleInputEvent(&event);
 		CHECK(captured_mouse_count == 2 &&
@@ -725,7 +792,7 @@ static int checkSystemDispatch(void) {
 
 		resetCapture();
 		memset(&event, 0, sizeof(event));
-		event.type = SDL_MOUSEWHEEL;
+		event.type = INPUT_MOUSE_WHEEL;
 		event.wheel.x = -2;
 		event.wheel.y = 0;
 		SystemHandleInputEvent(&event);
@@ -735,26 +802,26 @@ static int checkSystemDispatch(void) {
 
 	resetCapture();
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_MOUSEBUTTONDOWN;
+	event.type = INPUT_MOUSE_BUTTON_DOWN;
 	event.button.button = SDL_BUTTON_X1;
 	event.button.x = 53;
 	event.button.y = 59;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_MOUSEBUTTONUP;
+	event.type = INPUT_MOUSE_BUTTON_UP;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_MOUSEBUTTONDOWN;
+	event.type = INPUT_MOUSE_BUTTON_DOWN;
 	event.button.button = SDL_BUTTON_X2;
 	event.button.x = 61;
 	event.button.y = 67;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_MOUSEBUTTONUP;
+	event.type = INPUT_MOUSE_BUTTON_UP;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_MOUSEBUTTONDOWN;
+	event.type = INPUT_MOUSE_BUTTON_DOWN;
 	event.button.button = SDL_BUTTON_X2 + 1;
 	event.button.x = 71;
 	event.button.y = 73;
 	SystemHandleInputEvent(&event);
-	event.type = SDL_MOUSEBUTTONUP;
+	event.type = INPUT_MOUSE_BUTTON_UP;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_mouse_count == 6 &&
 			captured_mouse[0].button == 6 &&
@@ -778,7 +845,7 @@ static int checkSystemDispatch(void) {
 	resetCapture();
 	SystemInputSetRelativeMouseMode(0);
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_MOUSEMOTION;
+	event.type = INPUT_MOUSE_MOTION;
 	event.motion.x = 31;
 	event.motion.y = 47;
 	SystemHandleInputEvent(&event);
@@ -790,7 +857,7 @@ static int checkSystemDispatch(void) {
 	SystemInputSetMouseAnchor(100, 100);
 	SystemInputSetRelativeMouseMode(1);
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_MOUSEMOTION;
+	event.type = INPUT_MOUSE_MOTION;
 	event.motion.x = 900;
 	event.motion.y = 700;
 	event.motion.xrel = 7;
@@ -804,18 +871,18 @@ static int checkSystemDispatch(void) {
 
 	callbacks.keyboard = NULL;
 	resetCapture();
-	makeKeyEvent(&event, SDL_KEYDOWN, SDLK_F1, 0);
+	makeKeyEvent(&event, INPUT_KEY_DOWN, SDLK_F1, 0);
 	SystemHandleInputEvent(&event);
 	CHECK(captured_key_count == 0, "NULL keyboard callback was invoked");
 
 	callbacks.mouse = NULL;
 	memset(&event, 0, sizeof(event));
-	event.type = SDL_MOUSEBUTTONUP;
+	event.type = INPUT_MOUSE_BUTTON_UP;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_mouse_count == 0, "NULL mouse callback was invoked");
 
 	callbacks.mouseMotion = NULL;
-	event.type = SDL_MOUSEMOTION;
+	event.type = INPUT_MOUSE_MOTION;
 	SystemHandleInputEvent(&event);
 	CHECK(captured_motion_count == 0,
 			"NULL mouse-motion callback was invoked");
@@ -824,8 +891,190 @@ static int checkSystemDispatch(void) {
 	return 0;
 }
 
+#if SDL_MAJOR_VERSION >= 3
+static int checkSDL3Input(void) {
+	Callbacks callbacks;
+	SDL_Event event;
+	int x;
+	int y;
+	int i;
+	memset(&callbacks, 0, sizeof(callbacks));
+	callbacks.keyboard = captureKeyboard;
+	callbacks.mouse = captureMouse;
+	callbacks.mouseMotion = captureMouseMotion;
+	current = &callbacks;
+	SystemInputShutdown();
+	CHECK(SystemInputAddJoystickInstance(UINT32_MAX) == 0 &&
+			SystemInputAddJoystickInstance(0x80000000u) == 1,
+			"SDL3 unsigned instance IDs could not own distinct slots");
+	CHECK(SystemInputJoystickSlotForInstance(UINT32_MAX) == 0 &&
+			SystemInputJoystickSlotForInstance(0x80000000u) == 1 &&
+			SystemInputJoystickSlotForInstance(-1) == -1,
+			"SDL3 high instance IDs were narrowed or confused with errors");
+	resetCapture();
+	memset(&event, 0, sizeof(event));
+	event.type = SDL_EVENT_JOYSTICK_BUTTON_DOWN;
+	event.jbutton.which = UINT32_MAX;
+	event.jbutton.button = 0;
+	SystemHandleInputEvent(&event);
+	event.jbutton.which = 0x80000000u;
+	SystemHandleInputEvent(&event);
+	CHECK(captured_key_count == 2 &&
+			captured_keys[0].id == SYSTEM_JOY_BUTTON_0 &&
+			captured_keys[1].id == SYSTEM_JOY_BUTTON_0 + SYSTEM_JOY_OFFSET,
+			"SDL3 event dispatch narrowed full-range joystick IDs");
+	event.type = SDL_EVENT_JOYSTICK_REMOVED;
+	event.jdevice.which = UINT32_MAX;
+	SystemHandleInputEvent(&event);
+	CHECK(captured_key_count == 3 &&
+			captured_keys[2].state == SYSTEM_KEYSTATE_UP &&
+			captured_keys[2].id == SYSTEM_JOY_BUTTON_0 &&
+			SystemInputJoystickSlotForInstance(0x80000000u) == 1,
+			"SDL3 high-ID removal did not release only its own controls");
+	SystemInputShutdown();
+	SystemInputSetRelativeMouseMode(1);
+	SystemInputSetMouseAnchor(100, 100);
+	resetCapture();
+	memset(&event, 0, sizeof(event));
+	event.type = SDL_EVENT_MOUSE_MOTION;
+	event.motion.x = 900.5f;
+	event.motion.y = 700.5f;
+	event.motion.xrel = 0.25f;
+	event.motion.yrel = -0.25f;
+	for(i = 0; i < 3; i++) {
+		SystemHandleInputEvent(&event);
+		CHECK(captured_motion_x == 100 && captured_motion_y == 100,
+				"SDL3 fractional motion moved before a whole logical pixel");
+	}
+	SystemHandleInputEvent(&event);
+	CHECK(captured_motion_x == 101 && captured_motion_y == 99,
+			"SDL3 slow relative movement lost its fractional deltas");
+	SystemHandleInputEvent(&event);
+	SystemInputSetRelativeMouseMode(0);
+	SystemHandleInputEvent(&event);
+	CHECK(captured_motion_x == 900 && captured_motion_y == 700,
+			"SDL3 absolute logical coordinates changed");
+	SystemInputSetRelativeMouseMode(1);
+	event.motion.xrel = 0.75f;
+	event.motion.yrel = -0.75f;
+	SystemHandleInputEvent(&event);
+	CHECK(captured_motion_x == 100 && captured_motion_y == 100,
+			"SDL3 relative mode reused fractions from an earlier grab");
+	SystemInputSetMouseAnchor(INT_MAX, INT_MIN);
+	SystemInputTranslateMouseMotion(0, 0, INT_MAX, INT_MIN, &x, &y);
+	CHECK(x == INT_MAX && y == INT_MIN,
+			"relative mouse translation overflowed integer coordinates");
+	SystemInputSetRelativeMouseMode(0);
+	event.motion.x = NAN;
+	event.motion.y = INFINITY;
+	SystemHandleInputEvent(&event);
+	CHECK(captured_motion_x == 0 && captured_motion_y == 0,
+			"nonfinite SDL3 mouse positions reached integer conversion");
+	resetCapture();
+	memset(&event, 0, sizeof(event));
+	event.type = SDL_EVENT_MOUSE_WHEEL;
+	event.wheel.y = NAN;
+	SystemHandleInputEvent(&event);
+	CHECK(captured_mouse_count == 0,
+			"nonfinite SDL3 wheel movement generated a legacy click");
+	SystemInputShutdown();
+	current = NULL;
+	return 0;
+}
+
+/* Exercise SDL3 device enumeration and native open/event/close, beyond the
+ * synthetic instance registry tests. Only events from our virtual device are
+ * dispatched, so a developer's physical controllers cannot affect assertions. */
+static int checkSDL3VirtualJoystick(void) {
+	SDL_VirtualJoystickDesc desc;
+	SDL_JoystickID instance;
+	SDL_Joystick *handle;
+	SDL_Event event;
+	Callbacks callbacks;
+	int i;
+	CHECK(SDL_InitSubSystem(SDL_INIT_JOYSTICK),
+			"could not initialize SDL3 joystick test subsystem");
+	SDL_INIT_INTERFACE(&desc);
+	desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+	desc.naxes = 2;
+	desc.nbuttons = 20;
+	desc.name = "GLTron regression controller";
+	instance = SDL_AttachVirtualJoystick(&desc);
+	CHECK(instance != 0, "could not attach SDL3 virtual joystick");
+	/* Repeated init/shutdown must balance only the subsystem reference it owns. */
+	for(i = 0; i < 2; i++) {
+		SystemInputInit();
+		CHECK(strcmp(SDL_GetHint(SDL_HINT_KEYCODE_OPTIONS), "none") == 0,
+				"SDL3 keycode defaults still rewrite classic layout bindings");
+		SystemInputShutdown();
+		CHECK(SDL_IsJoystickVirtual(instance),
+				"input shutdown destroyed another owner's joystick subsystem");
+	}
+	memset(&callbacks, 0, sizeof(callbacks));
+	callbacks.keyboard = captureKeyboard;
+	current = &callbacks;
+	resetCapture();
+	SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
+	memset(&event, 0, sizeof(event));
+	event.type = SDL_EVENT_JOYSTICK_ADDED;
+	event.jdevice.which = instance;
+	SystemHandleInputEvent(&event);
+	CHECK(SystemInputJoystickSlotForInstance(instance) == 0,
+			"native SDL3 hotplug did not open the instance into a fixed slot");
+	handle = SDL_GetJoystickFromID(instance);
+	CHECK(handle != NULL, "input adapter did not retain a native joystick handle");
+	SDL_SetJoystickEventsEnabled(true);
+	CHECK(SDL_SetJoystickVirtualAxis(handle, 0, -20000) &&
+			SDL_SetJoystickVirtualButton(handle, 19, true),
+			"could not set SDL3 virtual controls");
+	SDL_UpdateJoysticks();
+	while(SDL_PollEvent(&event)) {
+		if((event.type == SDL_EVENT_JOYSTICK_AXIS_MOTION &&
+				event.jaxis.which == instance) ||
+			 (event.type == SDL_EVENT_JOYSTICK_BUTTON_DOWN &&
+				event.jbutton.which == instance))
+			SystemHandleInputEvent(&event);
+	}
+	CHECK(captured_key_count == 2 &&
+			captured_keys[0].id == SYSTEM_JOY_LEFT &&
+			captured_keys[1].id == SYSTEM_JOY_BUTTON_19,
+			"real SDL3 joystick events did not reach classic control callbacks");
+	CHECK(SDL_DetachVirtualJoystick(instance),
+			"could not detach SDL3 virtual joystick");
+	/* Disconnect also enqueues neutral events: route the whole device stream. */
+	while(SDL_PollEvent(&event)) {
+		if((event.type == SDL_EVENT_JOYSTICK_AXIS_MOTION &&
+				event.jaxis.which == instance) ||
+			 (event.type == SDL_EVENT_JOYSTICK_BUTTON_UP &&
+				event.jbutton.which == instance) ||
+			 (event.type == SDL_EVENT_JOYSTICK_REMOVED &&
+				event.jdevice.which == instance))
+			SystemHandleInputEvent(&event);
+	}
+	CHECK(captured_key_count == 4 &&
+			captured_keys[2].state == SYSTEM_KEYSTATE_UP &&
+			captured_keys[2].id == SYSTEM_JOY_LEFT &&
+			captured_keys[3].state == SYSTEM_KEYSTATE_UP &&
+			captured_keys[3].id == SYSTEM_JOY_BUTTON_19 &&
+			SystemInputJoystickSlotForInstance(instance) == -1,
+			"native SDL3 disconnect did not release controls and remove the slot");
+	CHECK(SDL_GetJoystickFromID(instance) == NULL,
+			"SDL3 removed joystick handle was not closed");
+	SystemInputShutdown();
+	current = NULL;
+	SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+	CHECK((SDL_WasInit(SDL_INIT_JOYSTICK) & SDL_INIT_JOYSTICK) == 0,
+			"SDL3 input initialization leaked a joystick subsystem reference");
+	return 0;
+}
+#endif
+
 int main(void) {
+	#if SDL_MAJOR_VERSION >= 3
+	if(!SDL_Init(0)) {
+#else
 	if(SDL_Init(0) != 0) {
+#endif
 		fprintf(stderr, "FAIL: SDL initialization: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -835,8 +1084,17 @@ int main(void) {
 		SDL_Quit();
 		return 1;
 	}
+#if SDL_MAJOR_VERSION >= 3
+	if(checkSDL3Input() || checkSDL3VirtualJoystick()) {
+		SDL_Quit();
+		return 1;
+	}
+#endif
 	SDL_Quit();
-#if SDL_MAJOR_VERSION >= 2
+#if SDL_MAJOR_VERSION >= 3
+	printf("PASS: SDL3 adapter preserves stable IDs, repeat filtering, "
+			 "fixed controller slots, and fractional mouse parity\n");
+#elif SDL_MAJOR_VERSION >= 2
 	printf("PASS: SDL2 adapter preserves stable IDs, repeat filtering, "
 			 "fixed controller slots, and mouse parity\n");
 #else

@@ -3,56 +3,64 @@
 #include "Nebu_filesystem.h"
 
 void initFonts(void) {
-  char *path;
-  file_handle file;
-  char buf[100];
-  char gamefont[100];
-  char guifont[100];
-  char *game = NULL, *gui = NULL;
+  char *path = getPath(PATH_DATA, "fonts.txt");
+  file_handle file = NULL;
+  char buf[256];
+  char gamefont[100] = "";
+  char guifont[100] = "";
+  FontTex *newgame = NULL, *newgui = NULL;
+  int valid = 1;
 
-  if(gameFtx != NULL) ftxUnloadFont(gameFtx);
-  if(guiFtx != NULL) ftxUnloadFont(guiFtx);
-
-  path = getPath(PATH_DATA, "fonts.txt");
   if(path != NULL) {
     file = file_open(path, "r");
-    while(file_gets(file, buf, sizeof(buf)) != NULL) {
-      if(sscanf(buf, "game: %s ", gamefont) == 1)
-	game = gamefont;
-      else if(sscanf(buf, "menu: %s ", guifont) == 1)
-	gui = guifont;
-    }
-    file_close(file);
     free(path);
-  } else {
-    fprintf(stderr, "can't load fonts.txt\n");
-    exit(1); /* OK: critical, installation corrupt */
   }
-
-  if(game == NULL || gui == NULL) {
-    fprintf(stderr, "incomplete font definition in fonts.txt\n");
-    exit(1); /* OK: critical, installation corrupt */
+  if(file == NULL) goto fail;
+  while(file_gets(file, buf, sizeof(buf)) != NULL) {
+    char value[100], extra;
+    size_t length = strlen(buf);
+    if(length == sizeof(buf) - 1 && buf[length - 1] != '\n') {
+      valid = 0;
+      break;
+    }
+    if(strncmp(buf, "game:", 5) == 0) {
+      if(sscanf(buf, "game: %99s %c", value, &extra) != 1) {
+        valid = 0;
+        break;
+      }
+      strcpy(gamefont, value);
+    } else if(strncmp(buf, "menu:", 5) == 0) {
+      if(sscanf(buf, "menu: %99s %c", value, &extra) != 1) {
+        valid = 0;
+        break;
+      }
+      strcpy(guifont, value);
+    }
   }
+  file_close(file);
+  if(!valid || gamefont[0] == '\0' || guifont[0] == '\0') goto fail;
+  newgame = ftxLoadFont(gamefont);
+  if(newgame == NULL) goto fail;
+  newgui = ftxLoadFont(guifont);
+  if(newgui == NULL) goto fail;
 
-  gameFtx = ftxLoadFont(game);
-  guiFtx = ftxLoadFont(gui);
+  /* Keep the previous pair alive until both replacements are ready. */
+  deleteFonts();
+  gameFtx = newgame;
+  guiFtx = newgui;
+  return;
 
-  if(gameFtx == NULL) {
-    fprintf(stderr, "can't load font %s\n", game);
-    exit(1); /* OK: critical, installation corrupt */
-  }
-
-  if(guiFtx == NULL) {
-    fprintf(stderr, "can't load font %s\n", gui);
-    exit(1); /* OK: critical, installation corrupt */
-  }
+fail:
+  ftxUnloadFont(newgame);
+  ftxUnloadFont(newgui);
+  fprintf(stderr, "can't load complete font definitions from fonts.txt\n");
+  if(gameFtx == NULL || guiFtx == NULL)
+    exit(1); /* Critical: no previous working font pair is available. */
 }
 
 void deleteFonts(void) {
-  if(gameFtx != NULL)
-    ftxUnloadFont(gameFtx);
+  ftxUnloadFont(gameFtx);
   gameFtx = NULL;
-  if(guiFtx != NULL)
-    ftxUnloadFont(guiFtx);
+  ftxUnloadFont(guiFtx);
   guiFtx = NULL;
 }

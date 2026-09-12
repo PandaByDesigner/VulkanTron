@@ -6,7 +6,7 @@
 #include "nebu_Source.h"
 #include "nebu_SoundSystem.h"
 
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 #include <mikmod.h>
 #endif
 
@@ -35,7 +35,7 @@ namespace Sound {
     int CreateSample(void);
 
   private:
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     MODULE* _module;
     Uint8* _sample_buffer;
 #else
@@ -49,7 +49,7 @@ namespace Sound {
     int _decoded;
 
 		char *_filename;
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
     SDL_RWops *_rwops;
 #endif
   };

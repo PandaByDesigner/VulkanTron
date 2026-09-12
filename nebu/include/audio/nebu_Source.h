@@ -3,7 +3,7 @@
 
 #include "nebu_Sound.h"
 
-#include "SDL.h"
+#include "audio/nebu_AudioSDL.h"
 
 namespace Sound {
   enum {
@@ -47,8 +47,8 @@ namespace Sound {
     int _type;
     char* _name;
 		
-		SDL_mutex* _mutex;
-		SDL_sem * _sem;
+		NebuAudioMutex* _mutex;
+		NebuAudioSemaphore * _sem;
   };
 }
 

@@ -5,13 +5,28 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 #include <mikmod.h>
 #endif
 
 namespace Sound {
-#ifdef GLTRON_SDL2_AUDIO
-  static SDL_mutex *decoder_mutex = NULL;
+#ifdef GLTRON_SDL3_AUDIO
+  static void SDLCALL stream_callback(void *userdata, SDL_AudioStream *stream,
+                                      int additional, int) {
+    /* SDL holds the stream lock for this entire callback. Always mix exactly
+       1024 stereo frames: the classic spatial pitch cursor rounds per block.
+       Let the stream retain any surplus until the device next needs it. */
+    Sint16 pcm[System::kMixChunkBytes / sizeof(Sint16)];
+    while(additional > 0) {
+      ((System*)userdata)->Callback((Uint8*)pcm, sizeof(pcm));
+      if(!SDL_PutAudioStreamData(stream, pcm, sizeof(pcm)))
+        break;
+      additional -= System::kMixChunkBytes;
+    }
+  }
+#endif
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+  static NebuAudioMutex *decoder_mutex = NULL;
   static int decoder_initialized = 0;
 
   int InitDecoder() {
@@ -91,7 +106,9 @@ namespace Sound {
     _info.format = spec->format;
     _info.rate = spec->freq;
     _info.channels = spec->channels;
-#ifdef GLTRON_SDL2_AUDIO
+#ifdef GLTRON_SDL3_AUDIO
+    _stream = NULL;
+#elif defined(GLTRON_SDL2_AUDIO)
     _device = 0;
 #endif
     
@@ -102,6 +119,9 @@ namespace Sound {
   }
 
   System::~System() {
+#ifdef GLTRON_SDL3_AUDIO
+    CloseAudio(); /* join callbacks before releasing source ownership */
+#endif
     while(_sources.next != NULL) {
       Source *source = (Source*) _sources.data;
       List *dead = _sources.next;
@@ -113,7 +133,32 @@ namespace Sound {
   }
 
   int System::OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
-#ifdef GLTRON_SDL2_AUDIO
+#ifdef GLTRON_SDL3_AUDIO
+    if(_stream != NULL) {
+      SDL_SetError("GLTron audio stream is already open");
+      return -1;
+    }
+    if(desired == NULL || desired->freq != 22050 ||
+       desired->format != SDL_AUDIO_S16 || desired->channels != 2) {
+      SDL_SetError("GLTron requires 22050 Hz signed 16-bit stereo mixer input");
+      return -1;
+    }
+    _stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                                        desired, stream_callback, this);
+    if(_stream == NULL)
+      return -1;
+    SDL_AudioSpec input;
+    if(!SDL_GetAudioStreamFormat(_stream, &input, NULL) ||
+       input.freq != desired->freq || input.format != desired->format ||
+       input.channels != desired->channels) {
+      CloseAudio();
+      SDL_SetError("audio stream changed GLTron's required mixer format");
+      return -1;
+    }
+    if(obtained != NULL)
+      *obtained = input; /* The physical device may convert after this point. */
+    return 0;
+#elif defined(GLTRON_SDL2_AUDIO)
     _device = SDL_OpenAudioDevice(NULL, 0, desired, obtained, 0);
     if(_device == 0)
       return -1;
@@ -134,7 +179,14 @@ namespace Sound {
   }
 
   void System::PauseAudio(int pause_on) {
-#ifdef GLTRON_SDL2_AUDIO
+#ifdef GLTRON_SDL3_AUDIO
+    if(_stream != NULL) {
+      if(pause_on)
+        SDL_PauseAudioStreamDevice(_stream);
+      else
+        SDL_ResumeAudioStreamDevice(_stream);
+    }
+#elif defined(GLTRON_SDL2_AUDIO)
     if(_device != 0)
       SDL_PauseAudioDevice(_device, pause_on);
 #else
@@ -143,7 +195,12 @@ namespace Sound {
   }
 
   void System::CloseAudio() {
-#ifdef GLTRON_SDL2_AUDIO
+#ifdef GLTRON_SDL3_AUDIO
+    if(_stream != NULL) {
+      SDL_DestroyAudioStream(_stream);
+      _stream = NULL;
+    }
+#elif defined(GLTRON_SDL2_AUDIO)
     if(_device != 0) {
       SDL_CloseAudioDevice(_device);
       _device = 0;
@@ -154,6 +211,10 @@ namespace Sound {
   }
 
   void System::Lock() {
+#ifdef GLTRON_SDL3_AUDIO
+    if(_stream != NULL)
+      SDL_LockAudioStream(_stream);
+#else
     if(_status == eInitialized) {
 #ifdef GLTRON_SDL2_AUDIO
       if(_device != 0)
@@ -162,9 +223,14 @@ namespace Sound {
       SDL_LockAudio();
 #endif
     }
+#endif
   }
 
   void System::Unlock() {
+#ifdef GLTRON_SDL3_AUDIO
+    if(_stream != NULL)
+      SDL_UnlockAudioStream(_stream);
+#else
     if(_status == eInitialized) {
 #ifdef GLTRON_SDL2_AUDIO
       if(_device != 0)
@@ -173,9 +239,15 @@ namespace Sound {
       SDL_UnlockAudio();
 #endif
     }
+#endif
   }
 
   void System::SetStatus(int status) {
+#ifdef GLTRON_SDL3_AUDIO
+    Lock();
+    _status = status;
+    Unlock();
+#else
     if(_status == eInitialized) {
 #ifdef GLTRON_SDL2_AUDIO
       if(_device != 0)
@@ -192,6 +264,7 @@ namespace Sound {
       /* The device is still paused while it becomes initialized. */
       _status = status;
     }
+#endif
   }
 
   void System::Callback(Uint8* data, int len) {

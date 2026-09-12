@@ -631,6 +631,37 @@ static void verifyBoosterUseAndRecovery(void) {
   printf("PASS: production booster use, release, recovery, and clamps\n");
 }
 
+static void verifyTrailStorageGrowth(void) {
+  Data *data = game->player[0].data;
+  GameEvent event;
+  int i;
+  memset(&event, 0, sizeof(event));
+  event.player = 0;
+  data->trailOffset = 0;
+  data->dir = 0;
+  data->trails[0].vStart.v[0] = 10;
+  data->trails[0].vStart.v[1] = 20;
+  for(i = 0; i < MAX_TRAIL * 2 + 5; i++) {
+    segment2 previous;
+    float expected_x, expected_y;
+    data->trails[i].vDirection.v[0] = dirsX[data->dir] * 0.25f;
+    data->trails[i].vDirection.v[1] = dirsY[data->dir] * 0.25f;
+    previous = data->trails[i];
+    getPositionFromData(&expected_x, &expected_y, data);
+    doTurn(&event, i % 2 ? 3 : 1);
+    if(data->trailOffset != i + 1 || data->trailCapacity <= data->trailOffset ||
+       memcmp(&previous, &data->trails[i], sizeof(previous)) != 0 ||
+       data->trails[i + 1].vStart.v[0] != expected_x ||
+       data->trails[i + 1].vStart.v[1] != expected_y ||
+       data->trails[i + 1].vDirection.v[0] != 0 ||
+       data->trails[i + 1].vDirection.v[1] != 0) {
+      fprintf(stderr, "trail growth corrupted production turn %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+  }
+  printf("PASS: 2005 production turns preserve every segment across storage growth\n");
+}
+
 static void freeGameState(void) {
   int i;
 
@@ -670,6 +701,7 @@ int main(void) {
   verifyScriptedHumanTurns();
   verifyWallCollisionTiming();
   verifyBoosterUseAndRecovery();
+  verifyTrailStorageGrowth();
 
   freeGameState();
   return EXIT_SUCCESS;

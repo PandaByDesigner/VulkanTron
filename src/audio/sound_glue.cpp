@@ -29,8 +29,8 @@ extern "C" {
 #include "game/game.h"
 #include "video/video.h" // 3d sound engine needs to know the camera's location!
 }
-#include "SDL.h"
-#ifndef GLTRON_SDL2_AUDIO
+#include "audio/nebu_AudioSDL.h"
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
 #include "SDL_sound.h"
 #endif
 
@@ -66,7 +66,7 @@ namespace {
 
 #define TURNLENGTH 250.0f
 
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
 static void output_decoders(void)
 {
     const Sound_DecoderInfo **rc = Sound_AvailableDecoders();
@@ -210,7 +210,7 @@ extern "C" {
   void Audio_Init(void) {
     decoder_ready = Sound::InitDecoder();
     if(!decoder_ready) {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
       fprintf(stderr, "[error] tracker music decoder is unavailable\n");
 #else
       fprintf(stderr, "[error] SDL_sound initialization failed: %s\n",
@@ -222,14 +222,18 @@ extern "C" {
     SDL_AudioSpec spec;
     SDL_memset(&spec, 0, sizeof(spec));
     spec.freq = 22050;
-    spec.format = AUDIO_S16SYS;
+    spec.format = NEBU_AUDIO_S16;
     spec.channels = 2;
+#ifndef GLTRON_SDL3_AUDIO
     spec.samples = 1024;
+#endif
 
     sound = new Sound::System(&spec);
 
+#ifndef GLTRON_SDL3_AUDIO
     spec.userdata = sound;
     spec.callback = sound->GetCallback();
+#endif
 
 		SDL_AudioSpec obtained;
     SDL_memset(&obtained, 0, sizeof(obtained));
@@ -387,7 +391,7 @@ extern "C" {
 
   void Audio_LoadSample(char *name, int number) {
     int can_load = 1;
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
     /* SDL1 effects also depend on SDL_sound; SDL2 WAV effects do not depend
        on the tracker decoder and remain available if libmikmod cannot start. */
     can_load = decoder_ready;

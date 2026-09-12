@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GLTron Faithful Remaster
+GenericName=Lightcycle game
+Comment=The classic GLTron experience, faithfully restored
+Exec=gltron
+Icon=gltron
+Terminal=false
+Categories=Game;ArcadeGame;
+Keywords=Tron;Lightcycle;Arcade;

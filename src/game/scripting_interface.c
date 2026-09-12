@@ -43,6 +43,8 @@ int c_resetCamera(lua_State *L) {
 }
 
 int c_video_restart(lua_State *L) {
+  if(applyWindowSettings())
+    return 0;
   initGameScreen();
   shutdownDisplay( gScreen );
   setupDisplay( gScreen );

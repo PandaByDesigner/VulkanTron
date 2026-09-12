@@ -1,5 +1,6 @@
 #include "video/video.h"
 #include "game/game.h"
+#include <math.h>
 
 #define TEX_SPLIT (1.0 - BOW_DIST2) / (1 - BOW_DIST1)
 #undef TEX_SPLIT
@@ -13,14 +14,16 @@ static float normal2[] = { 0.0, 1.0, 0.0 };
    the z component is ignored
  */
 float getDist(segment2 *s, float* eye) {
-  float n[2];
-  float tmp[2];
-  n[0] = s->vStart.v[0] + s->vDirection.v[1];
-  n[1] = s->vStart.v[1] - s->vDirection.v[0];
-  tmp[0] = eye[0] - s->vStart.v[0];
-  tmp[1] = eye[1] - s->vStart.v[1];
-  if(n[0] == 0 && n[1] == 0) return length(tmp);
-  return abs(scalarprod2(n, tmp) / length(n));
+  float dx = eye[0] - s->vStart.v[0];
+  float dy = eye[1] - s->vStart.v[1];
+  float line_length = hypotf(s->vDirection.v[0], s->vDirection.v[1]);
+  if(line_length == 0)
+    return hypotf(dx, dy);
+  /* The normal is perpendicular to the direction, not to the start point.
+   * Normalize first and keep the fractional distance; length() reads three
+   * components and abs() would truncate this two-dimensional result. */
+  return fabsf(dx * (s->vDirection.v[1] / line_length) -
+               dy * (s->vDirection.v[0] / line_length));
 }
 
 /*
@@ -167,6 +170,9 @@ void drawTrailLines(Player *p, PlayerVisual *pV) {
 */
 
 void drawTrailShadow(Player* p, PlayerVisual *pV) {
+  TrailMesh mesh;
+  if(!trailMeshAllocate(&mesh, p->data->trailOffset))
+    return;
   /* states */
 
   if(gSettingsCache.use_stencil) {
@@ -191,25 +197,13 @@ void drawTrailShadow(Player* p, PlayerVisual *pV) {
 		int vOffset = 0;
 		int iOffset = 0;
 
-		TrailMesh mesh;
-		mesh.pVertices = (vec3*) malloc(1000 * sizeof(vec3));
-		mesh.pNormals = (vec3*) malloc(1000 * sizeof(vec3));
-		mesh.pColors = (unsigned char*) malloc(1000 * 4 * sizeof(float));
-		mesh.pTexCoords = (vec2*) malloc(1000 * sizeof(vec2));
-		mesh.pIndices = (unsigned short*) malloc(1000 * 2);
-		mesh.iUsed = 0;
-		
 		trailGeometry(p, pV, &mesh, &vOffset, &iOffset);
 		bowGeometry(p, pV, &mesh, &vOffset, &iOffset);
 		trailStatesShadowed();
 		trailRender(&mesh);
 		// no states restore, because we're drawing shadowed geometry
 
-		free(mesh.pVertices);
-		free(mesh.pNormals);
-		free(mesh.pColors);
-		free(mesh.pTexCoords);
-		free(mesh.pIndices);
+		trailMeshFree(&mesh);
 	}
 
   /* restore */
@@ -221,4 +215,3 @@ void drawTrailShadow(Player* p, PlayerVisual *pV) {
 
   glPopMatrix();
 }
-

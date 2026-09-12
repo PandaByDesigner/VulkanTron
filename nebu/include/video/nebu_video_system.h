@@ -23,6 +23,16 @@ extern void SystemInitDisplayMode(int flags, unsigned char fullscreen);
 extern int SystemCreateWindow(char *name);
 extern void SystemDestroyWindow(int id);
 extern void SystemReshapeFunc(void(*reshape)(int, int));
+/* Dimensions exposed to the renderer are drawable pixels. Mouse coordinates
+ * and saved windowed dimensions remain logical window coordinates. */
+extern void SystemGetDrawableSize(int *width, int *height);
+extern void SystemGetWindowSize(int *width, int *height);
+extern int SystemIsFullscreen(void);
+extern int SystemApplyWindow(int width, int height, int flags,
+                             unsigned char fullscreen);
+extern int SystemHandleWindowEvent(const void *event);
+/* Runs once after the next complete frame, before swapping the back buffer. */
+extern void SystemCaptureNextFrame(void (*capture)(void));
 
 extern int SystemWriteBMP(char *filename, int x, int y, unsigned char *pixels);
 

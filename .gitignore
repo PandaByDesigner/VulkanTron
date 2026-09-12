@@ -13,3 +13,10 @@ autom4te.cache/
 # Local build directories
 _build/
 build/
+
+# Local preferences and in-game captures
+.gltronrc
+gltron.ini
+gltronPrefs.txt
+gltron-[0-9]*.png
+gltron-[0-9]*.bmp

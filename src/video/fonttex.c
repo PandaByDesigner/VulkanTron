@@ -4,83 +4,132 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 
 // #include <GL/gl.h>
 #define NO_SDL_GLEXT
+#ifdef GLTRON_USE_SDL3
+#include <SDL3/SDL_opengl.h>
+#else
 #include "SDL_opengl.h"
+#endif
 
 #define FTX_ERR "[FontTex error]: "
 
-void getLine(char *buf, int size, file_handle file) {
-  do {
-    file_gets(file, buf, size);
-  } while( buf[0] == '\n' || buf[0] == '#');
+/* Return failure on EOF, overlong records and truncated metadata. */
+static int getLine(char *buf, int size, file_handle file) {
+  while(file_gets(file, buf, size) != NULL) {
+    char *start = buf;
+    size_t length = strlen(buf);
+    if(length == (size_t)size - 1 && buf[length - 1] != '\n')
+      return 0;
+    while(*start != '\0' && isspace((unsigned char)*start)) ++start;
+    if(*start == '\0' || *start == '#') continue;
+    memmove(buf, start, strlen(start) + 1);
+    length = strlen(buf);
+    while(length > 0 && isspace((unsigned char)buf[length - 1]))
+      buf[--length] = '\0';
+    return 1;
+  }
+  return 0;
+}
+
+static int parseNumbers(const char *line, int *values, int count) {
+  int i;
+  for(i = 0; i < count; ++i) {
+    char *end;
+    long value;
+    errno = 0;
+    value = strtol(line, &end, 10);
+    if(line == end || errno == ERANGE || value < INT_MIN || value > INT_MAX)
+      return 0;
+    values[i] = (int)value;
+    line = end;
+  }
+  while(isspace((unsigned char)*line)) ++line;
+  return *line == '\0';
 }
 
 FontTex *ftxLoadFont(const char *filename) {
   char *path;
   file_handle file;
   char buf[100];
+  char **textures = NULL;
+  int values[3], i, cells;
+  FontTex *ftx = NULL;
 
-  int i;
-  int len;
-  FontTex *ftx;
-  
-  path = getPath(PATH_DATA, filename);
-  if(path == NULL) {
-    fprintf(stderr, FTX_ERR "can't load font file '%s'\n", filename);
+  if(filename == NULL)
     return NULL;
-  }
+  path = getPath(PATH_DATA, filename);
+  if(path == NULL)
+    return NULL;
   file = file_open(path, "r");
   free(path);
-
-  /* TODO(5): check for EOF errors in the following code */
-  
-  /* nTextures, texture width, char width */
-  ftx = (FontTex*) malloc(sizeof(FontTex));
-  getLine(buf, sizeof(buf), file);
-  sscanf(buf, "%d %d %d ", &(ftx->nTextures), &(ftx->texwidth), &(ftx->width));
-  /* lowest character, highest character */
-  getLine(buf, sizeof(buf), file);
-  sscanf(buf, "%d %d ", &(ftx->lower), &(ftx->upper));
-  /* font name */
-  getLine(buf, sizeof(buf), file);
-  len = strlen(buf) + 1;
-
-  ftx->fontname = (char*)malloc(len);
-  memcpy(ftx->fontname, buf, len);
-
-  /* prepare space for texture IDs  */
-  ftx->texID = (GLuint*) malloc(ftx->nTextures * sizeof(unsigned int));
+  if(file == NULL)
+    return NULL;
+  ftx = calloc(1, sizeof(*ftx));
+  if(ftx == NULL || !getLine(buf, sizeof(buf), file) ||
+     !parseNumbers(buf, values, 3)) goto fail;
+  ftx->nTextures = values[0];
+  ftx->texwidth = values[1];
+  ftx->width = values[2];
+  if(ftx->nTextures <= 0 || ftx->nTextures > 256 || ftx->texwidth <= 0 ||
+     ftx->texwidth > 16384 || ftx->width <= 0 ||
+     ftx->width > ftx->texwidth || ftx->texwidth % ftx->width != 0)
+    goto fail;
+  if(!getLine(buf, sizeof(buf), file) || !parseNumbers(buf, values, 2))
+    goto fail;
+  ftx->lower = values[0];
+  ftx->upper = values[1];
+  cells = ftx->texwidth / ftx->width;
+  if(ftx->lower < 0 || ftx->upper > 255 || ftx->upper < ftx->lower ||
+     (size_t)ftx->upper - ftx->lower + 2 >
+       (size_t)ftx->nTextures * cells * cells)
+    goto fail;
+  if(!getLine(buf, sizeof(buf), file)) goto fail;
+  ftx->fontname = malloc(strlen(buf) + 1);
+  textures = calloc((size_t)ftx->nTextures, sizeof(*textures));
+  if(ftx->fontname == NULL || textures == NULL) goto fail;
+  strcpy(ftx->fontname, buf);
+  for(i = 0; i < ftx->nTextures; ++i) {
+    if(!getLine(buf, sizeof(buf), file)) goto fail;
+    textures[i] = malloc(strlen(buf) + 1);
+    if(textures[i] == NULL) goto fail;
+    strcpy(textures[i], buf);
+  }
+  /* Validate all metadata before creating GPU resources. */
+  ftx->texID = calloc((size_t)ftx->nTextures, sizeof(*ftx->texID));
+  if(ftx->texID == NULL) goto fail;
   glGenTextures(ftx->nTextures, ftx->texID);
-
-  /* the individual textures */
-  for(i = 0; i < ftx->nTextures; i++) {
-    char *texname;
-    getLine(buf, sizeof(buf), file);
-    len = strlen(buf) + 1;
-    if(buf[len - 2] == '\n') buf[len - 2] = 0;
-    texname = (char*)malloc(len);
-    memcpy(texname, buf, len); 
+  for(i = 0; i < ftx->nTextures; ++i) {
     glBindTexture(GL_TEXTURE_2D, ftx->texID[i]);
-    loadTexture(texname, GL_RGBA);
-    free(texname);
-
+    if(!loadTextureChecked(textures[i], GL_RGBA)) goto fail;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    /* glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); */
-    /* glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); */
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
   }
-
+  for(i = 0; i < ftx->nTextures; ++i) free(textures[i]);
+  free(textures);
   file_close(file);
   return ftx;
+
+fail:
+  fprintf(stderr, FTX_ERR "invalid or unavailable font '%s'\n", filename);
+  if(textures != NULL) {
+    for(i = 0; i < ftx->nTextures; ++i) free(textures[i]);
+    free(textures);
+  }
+  ftxUnloadFont(ftx);
+  file_close(file);
+  return NULL;
 }
 
 void ftxUnloadFont(FontTex *ftx) {
-  glDeleteTextures(ftx->nTextures, ftx->texID);
-
+  if(ftx == NULL) return;
+  if(ftx->texID != NULL) glDeleteTextures(ftx->nTextures, ftx->texID);
   free(ftx->texID);
   free(ftx->fontname);
   free(ftx);
@@ -154,6 +203,9 @@ void ftxRenderString(FontTex *ftx, const char *string, int len) {
   float cw;
   float cx, cy;
 
+  if(ftx == NULL || string == NULL || len <= 0 || ftx->width <= 0 ||
+     ftx->texwidth < ftx->width || ftx->texID == NULL)
+    return;
   w = ftx->texwidth / ftx->width;
   cw = (float)ftx->width / (float)ftx->texwidth;
 
@@ -161,18 +213,19 @@ void ftxRenderString(FontTex *ftx, const char *string, int len) {
     if(string[i] == 3) { /* color code */
       i++;
       if(i >= len) return;
-      if(string[i] < color_base && string[i] > color_base + colors) continue;
-      glColor3ubv(color_codes[ string[i] - color_base ]);
+      if((unsigned char)string[i] < color_base ||
+         (unsigned char)string[i] >= color_base + colors) continue;
+      glColor3ubv(color_codes[(unsigned char)string[i] - color_base]);
       continue;
     }
       
     /* find out which texture it's in */
     /* TODO(4): find out why the +1 is necessary */
-    index = string[i] - ftx->lower + 1;
-    if(index >= ftx->upper) 
-      fprintf(stderr, FTX_ERR " index out of bounds");
-    tex = index / (w * 
-w);
+    if((unsigned char)string[i] < ftx->lower ||
+       (unsigned char)string[i] > ftx->upper) continue;
+    index = (unsigned char)string[i] - ftx->lower + 1;
+    tex = index / (w * w);
+    if(tex < 0 || tex >= ftx->nTextures) continue;
     /* bind texture */
     if(tex != bound) {
       glBindTexture(GL_TEXTURE_2D, ftx->texID[tex]);

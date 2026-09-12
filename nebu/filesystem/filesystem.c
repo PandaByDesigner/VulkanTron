@@ -8,6 +8,7 @@ void initFilesystem(int argc, const char *argv[]) {
 
 int fileExists(const char *path) {
   FILE *f;
+  if(path == NULL) return 0;
   if((f = fopen(path, "r"))) {
     fclose(f);
     return 1;

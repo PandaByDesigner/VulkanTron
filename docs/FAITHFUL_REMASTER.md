@@ -5,6 +5,27 @@ turning it into a different game. The stabilized original is protected by the
 `stabilized-classic` tag; remaster work lives on the
 `codex/faithful-remaster` branch.
 
+## Current SDL3 preview
+
+The active CMake build now defaults to SDL3 with OpenGL and native audio. SDL1
+and SDL2 are retained comparison builds. The sections below record successive
+historical checkpoints; references to SDL1 as the default apply to those
+checkpoints, not the current CMake release preset. See [README](../README.md)
+for current commands and [the release checklist](RELEASE_CHECKLIST.md) for
+completion status.
+
+The SDL3 platform changes include resizable HiDPI windows, borderless desktop
+fullscreen, synchronized display changes that retain the OpenGL context, and
+screenshots captured from a completed back buffer. Font/PNG failures now unwind
+resources safely and optional texture failures fall back to the original pack.
+The native stream adapter preserves the classic 22,050 Hz/S16/stereo mixer in
+fixed blocks while SDL3 converts to the output device's format.
+
+The agreed project sequence is to finish this faithful release, then fork its
+working gameplay foundation into **VulkanTron**. A full shader-renderer rewrite,
+new music, and new visual direction belong to that later project. SDL3 platform
+modernization and an OpenGL faithful remaster are compatible choices.
+
 ## Faithfulness contract
 
 Until the remaster is complete, these remain the classic GLTron 0.70 behavior:
@@ -426,7 +447,7 @@ decoder and production-object hashes remain the authoritative exact-parity
 checks. The user's real `.gltronrc` retained its original checksum, mode, size,
 and modification time.
 
-## Current platform boundary
+## SDL2 checkpoint platform boundary (historical)
 
 SDL 1.2 through `sdl12-compat` remains the default release reference, and the
 fixed-function OpenGL renderer remains unchanged. The opt-in SDL2 path now owns
@@ -447,7 +468,7 @@ failure occurs in the existing filesystem/archive linkage rather than the new
 HUD units, so it is recorded as a deferred platform/build concern instead of
 being folded into this presentation milestone.
 
-## Remaster sequence before modding
+## Original milestone sequence
 
 1. Complete: deterministic rounds, turn order and trail continuity, wall
    collision and scoring timing, booster behavior, all four camera modes, and
@@ -465,7 +486,9 @@ being folded into this presentation milestone.
    screenshot correctness.
 6. Create a separate high-resolution faithful artpack and fonts while keeping
    the original artpack available for direct comparison.
-7. Modernize the renderer behind screenshot and gameplay-state comparisons.
+7. Originally proposed: modernize the renderer behind screenshot and
+   gameplay-state comparisons. The agreed two-project direction now places that
+   rewrite in VulkanTron after the faithful release.
 
 Only after these parity gates pass does the separate creative modding phase
 begin.

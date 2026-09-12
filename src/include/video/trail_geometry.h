@@ -8,11 +8,15 @@ typedef struct {
 	vec3* pVertices; // each vertex consists of three floats
 	vec3* pNormals; // each normal consists of three float
 	vec2* pTexCoords; // each texcoord consists of three float
-	unsigned short *pIndices; // each triangle consists of three 16bit indices
+	GLuint *pIndices; // each triangle consists of three 32-bit indices
 	unsigned char *pColors; // each vertex color consists of 4 bytes
-	unsigned int iSize;
+	unsigned int iSize; // allocated index count
 	unsigned int iUsed;
+	unsigned int vertexCapacity;
 } TrailMesh;
+
+int trailMeshAllocate(TrailMesh *pMesh, int completedSegments);
+void trailMeshFree(TrailMesh *pMesh);
 
 void storeVertex(TrailMesh *pMesh, int offset, 
 								 segment2 *s, float t, float fFloor, float fTop,

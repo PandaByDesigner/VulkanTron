@@ -66,6 +66,7 @@ typedef struct Data {
  
   segment2 *trails;
 	int trailOffset;
+  int trailCapacity; /* storage only; never part of gameplay or saved settings */
 } Data;
 
 typedef struct AI {

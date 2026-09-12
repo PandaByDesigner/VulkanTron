@@ -8,7 +8,7 @@ namespace Sound {
   int SourceCopy::Mix(Uint8 *data, int len) {
     if(_source->_buffer == NULL) return 0;
 
-    int volume = (int)(_source->GetVolume() * SDL_MIX_MAXVOLUME);
+    int volume = (int)(_source->GetVolume() * NEBU_MIX_MAXVOLUME);
     // fprintf(stderr, "playing copy sample at %d, position: %d\n", volume, _position);
     int buffersize = _source->_buffersize;
     Uint8* buffer = (Uint8*) _source->_buffer;
@@ -16,20 +16,11 @@ namespace Sound {
     assert(len < buffersize);
       
     if(len < buffersize - _position) {
-#ifdef GLTRON_SDL2_AUDIO
-      SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS, len, volume);
-#else
-      SDL_MixAudio(data, buffer + _position, len, volume);
-#endif
+      nebu_MixAudio(data, buffer + _position, len, volume);
       _position += len;
     } else { 
-#ifdef GLTRON_SDL2_AUDIO
-      SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS,
+      nebu_MixAudio(data, buffer + _position,
 		                 buffersize - _position, volume);
-#else
-      SDL_MixAudio(data, buffer + _position, buffersize - _position,
-		   volume);
-#endif
       len -= buffersize - _position;
 
 	      if(_loop) {
@@ -37,11 +28,7 @@ namespace Sound {
 	  _loop--;
 
 	_position = 0;
-#ifdef GLTRON_SDL2_AUDIO
-	SDL_MixAudioFormat(data, buffer + _position, AUDIO_S16SYS, len, volume);
-#else
-	SDL_MixAudio(data, buffer + _position, len, volume);
-#endif
+	nebu_MixAudio(data, buffer + _position, len, volume);
 	_position += len;
       } else {
 	_isPlaying = 0;

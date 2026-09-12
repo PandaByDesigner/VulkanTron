@@ -1,0 +1,65 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 21, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Faithful release (SDL3 + OpenGL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "GLTRON_SDL_BACKEND": "SDL3", "BUILD_TESTING": "ON"}
+    },
+    {
+      "name": "debug",
+      "inherits": "release",
+      "displayName": "Debug (SDL3 + OpenGL)",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}
+    },
+    {
+      "name": "asan",
+      "inherits": "debug",
+      "displayName": "Address/undefined sanitizer checks",
+      "binaryDir": "${sourceDir}/build/asan",
+      "cacheVariables": {"GLTRON_ENABLE_SANITIZERS": "ON"}
+    },
+    {
+      "name": "sdl2-reference",
+      "inherits": "release",
+      "displayName": "SDL2 reference",
+      "binaryDir": "${sourceDir}/build/sdl2-reference",
+      "cacheVariables": {"GLTRON_SDL_BACKEND": "SDL2"}
+    },
+    {
+      "name": "sdl1-reference",
+      "inherits": "release",
+      "displayName": "SDL1 classic reference",
+      "binaryDir": "${sourceDir}/build/sdl1-reference",
+      "cacheVariables": {"GLTRON_SDL_BACKEND": "SDL1"}
+    },
+    {
+      "name": "no-audio",
+      "inherits": "release",
+      "displayName": "SDL3 without audio",
+      "binaryDir": "${sourceDir}/build/no-audio",
+      "cacheVariables": {"GLTRON_ENABLE_AUDIO": "OFF"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "release", "configurePreset": "release"},
+    {"name": "debug", "configurePreset": "debug"},
+    {"name": "asan", "configurePreset": "asan"},
+    {"name": "sdl2-reference", "configurePreset": "sdl2-reference"},
+    {"name": "sdl1-reference", "configurePreset": "sdl1-reference"},
+    {"name": "no-audio", "configurePreset": "no-audio"}
+  ],
+  "testPresets": [
+    {"name": "release", "configurePreset": "release", "output": {"outputOnFailure": true}},
+    {"name": "debug", "configurePreset": "debug", "output": {"outputOnFailure": true}},
+    {"name": "asan", "configurePreset": "asan", "output": {"outputOnFailure": true},
+      "environment": {"ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1", "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"}},
+    {"name": "sdl2-reference", "configurePreset": "sdl2-reference", "output": {"outputOnFailure": true}},
+    {"name": "sdl1-reference", "configurePreset": "sdl1-reference", "output": {"outputOnFailure": true}},
+    {"name": "no-audio", "configurePreset": "no-audio", "output": {"outputOnFailure": true}}
+  ]
+}

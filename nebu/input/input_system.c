@@ -2,7 +2,13 @@
 #include "input/nebu_system_keynames.h"
 #include "base/nebu_system.h"
 
+#ifdef GLTRON_USE_SDL3
+#include <SDL3/SDL.h>
+#else
 #include "SDL.h"
+#endif
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,11 +18,53 @@ static SystemJoystickTranslator joystick_translator;
 static unsigned char joystick_button_down[GLTRON_INPUT_JOY_SLOT_COUNT]
 	[GLTRON_INPUT_JOY_BUTTON_COUNT];
 static SDL_Joystick *joystick_handles[GLTRON_INPUT_JOY_SLOT_COUNT];
-static int joystick_instance_ids[GLTRON_INPUT_JOY_SLOT_COUNT];
+static int64_t joystick_instance_ids[GLTRON_INPUT_JOY_SLOT_COUNT];
 static unsigned char joystick_instance_used[GLTRON_INPUT_JOY_SLOT_COUNT];
 static int relative_mouse_mode;
 static int mouse_anchor_x;
 static int mouse_anchor_y;
+static double mouse_remainder_x;
+static double mouse_remainder_y;
+#if SDL_MAJOR_VERSION >= 3
+static int joystick_subsystem_owned;
+#endif
+
+/* Keep SDL event names local; application input IDs remain backend independent. */
+#if SDL_MAJOR_VERSION >= 3
+#define INPUT_KEY_DOWN SDL_EVENT_KEY_DOWN
+#define INPUT_KEY_UP SDL_EVENT_KEY_UP
+#define INPUT_JOY_AXIS SDL_EVENT_JOYSTICK_AXIS_MOTION
+#define INPUT_JOY_BUTTON_DOWN SDL_EVENT_JOYSTICK_BUTTON_DOWN
+#define INPUT_JOY_BUTTON_UP SDL_EVENT_JOYSTICK_BUTTON_UP
+#define INPUT_MOUSE_BUTTON_DOWN SDL_EVENT_MOUSE_BUTTON_DOWN
+#define INPUT_MOUSE_BUTTON_UP SDL_EVENT_MOUSE_BUTTON_UP
+#define INPUT_MOUSE_MOTION SDL_EVENT_MOUSE_MOTION
+#define INPUT_MOUSE_WHEEL SDL_EVENT_MOUSE_WHEEL
+#define INPUT_JOY_ADDED SDL_EVENT_JOYSTICK_ADDED
+#define INPUT_JOY_REMOVED SDL_EVENT_JOYSTICK_REMOVED
+#else
+#define INPUT_KEY_DOWN SDL_KEYDOWN
+#define INPUT_KEY_UP SDL_KEYUP
+#define INPUT_JOY_AXIS SDL_JOYAXISMOTION
+#define INPUT_JOY_BUTTON_DOWN SDL_JOYBUTTONDOWN
+#define INPUT_JOY_BUTTON_UP SDL_JOYBUTTONUP
+#define INPUT_MOUSE_BUTTON_DOWN SDL_MOUSEBUTTONDOWN
+#define INPUT_MOUSE_BUTTON_UP SDL_MOUSEBUTTONUP
+#define INPUT_MOUSE_MOTION SDL_MOUSEMOTION
+#if SDL_MAJOR_VERSION >= 2
+#define INPUT_MOUSE_WHEEL SDL_MOUSEWHEEL
+#define INPUT_JOY_ADDED SDL_JOYDEVICEADDED
+#define INPUT_JOY_REMOVED SDL_JOYDEVICEREMOVED
+#endif
+#endif
+
+static void closeJoystick(SDL_Joystick *handle) {
+#if SDL_MAJOR_VERSION >= 3
+	SDL_CloseJoystick(handle);
+#else
+	SDL_JoystickClose(handle);
+#endif
+}
 
 float SystemClampJoyThreshold(float threshold) {
 	if(threshold != threshold || threshold < 0.0f)
@@ -140,32 +188,62 @@ void SystemMouseMotion(int x, int y) {
       current->mouseMotion(x, y);
 }
 
+static int mouseCoordinate(double value) {
+	/* SDL3 carries fractional coordinates. Avoid undefined float-to-int casts
+	 * for malformed injected events or extreme pointer positions. */
+	if(!isfinite(value))
+		return 0;
+	if(value >= INT_MAX)
+		return INT_MAX;
+	if(value <= INT_MIN)
+		return INT_MIN;
+	return (int)value;
+}
+
 #if SDL_MAJOR_VERSION >= 2
-static int legacyMouseButtonFromSDL2(int button) {
+static int legacyMouseButtonFromSDL(int button) {
 	/* SDL 1 reserves buttons 4 and 5 for its synthetic wheel clicks. */
 	if(button > SDL_BUTTON_RIGHT)
 		return button + 2;
 	return button;
 }
 
-static void dispatchSDL2MouseWheel(const SDL_MouseWheelEvent *wheel) {
+static void dispatchSDLMouseWheel(const SDL_MouseWheelEvent *wheel) {
 	int button;
 	int mouse_x;
 	int mouse_y;
 
 	if(wheel == NULL || wheel->y == 0)
 		return;
+#if SDL_MAJOR_VERSION >= 3
+	if(!isfinite(wheel->y))
+		return;
+#endif
 
 	button = wheel->y > 0 ? 4 : 5;
 	/* SDL 1 has no wheel-direction metadata or magnitude.  Match
 	 * sdl12-compat by producing one classic click for each SDL2 event. */
+#if SDL_MAJOR_VERSION >= 3
+	{
+		float x;
+		float y;
+		SDL_GetMouseState(&x, &y);
+		mouse_x = mouseCoordinate(x);
+		mouse_y = mouseCoordinate(y);
+	}
+#else
 	SDL_GetMouseState(&mouse_x, &mouse_y);
+#endif
 	SystemMouse(button, SYSTEM_MOUSEPRESSED, mouse_x, mouse_y);
 	SystemMouse(button, SYSTEM_MOUSERELEASED, mouse_x, mouse_y);
 }
 #endif
 
 void SystemInputSetRelativeMouseMode(int enabled) {
+	if(relative_mouse_mode != (enabled ? 1 : 0)) {
+		mouse_remainder_x = 0.0;
+		mouse_remainder_y = 0.0;
+	}
 	relative_mouse_mode = enabled ? 1 : 0;
 }
 
@@ -180,13 +258,28 @@ void SystemInputTranslateMouseMotion(int x, int y, int xrel, int yrel,
 		return;
 
 	if(relative_mouse_mode) {
-		*translated_x = mouse_anchor_x + xrel;
-		*translated_y = mouse_anchor_y + yrel;
+		*translated_x = mouseCoordinate((double)mouse_anchor_x + xrel);
+		*translated_y = mouseCoordinate((double)mouse_anchor_y + yrel);
 	} else {
 		*translated_x = x;
 		*translated_y = y;
 	}
 }
+
+#if SDL_MAJOR_VERSION >= 3
+static int relativeMouseDelta(float value, double *remainder) {
+	double accumulated;
+	int result;
+	if(!isfinite(value))
+		return 0;
+	accumulated = value + *remainder;
+	result = mouseCoordinate(accumulated);
+	*remainder = accumulated - result;
+	if(*remainder >= 1.0 || *remainder <= -1.0)
+		*remainder = 0.0;
+	return result;
+}
+#endif
 
 static const char *const digit_key_names[] = {
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
@@ -453,7 +546,25 @@ SystemInputId SystemInputIdFromSDL2Key(int key) {
 #endif
 }
 
-int SystemInputJoystickSlotForInstance(int instance_id) {
+SystemInputId SystemInputIdFromSDL3Key(unsigned int key) {
+#if SDL_MAJOR_VERSION >= 3
+	/* SDL3 retained SDL2's Unicode/scancode values, with a few additional
+	 * explicitly named non-Unicode keys. Never narrow unchecked uint32 keys. */
+	switch(key) {
+	case SDLK_MULTI_KEY_COMPOSE: return GLTRON_INPUT_KEY_COMPOSE;
+	case SDLK_LMETA: return GLTRON_INPUT_KEY_LMETA;
+	case SDLK_RMETA: return GLTRON_INPUT_KEY_RMETA;
+	default: break;
+	}
+	if(key <= INT_MAX)
+		return SystemInputIdFromSDL2Key((int)key);
+#else
+	(void)key;
+#endif
+	return GLTRON_INPUT_INVALID;
+}
+
+int SystemInputJoystickSlotForInstance(int64_t instance_id) {
 	int slot;
 
 	for(slot = 0; slot < GLTRON_INPUT_JOY_SLOT_COUNT; slot++) {
@@ -464,11 +575,15 @@ int SystemInputJoystickSlotForInstance(int instance_id) {
 	return -1;
 }
 
-int SystemInputAddJoystickInstance(int instance_id) {
+int SystemInputAddJoystickInstance(int64_t instance_id) {
 	int slot;
 
-	if(instance_id < 0)
+	if(instance_id < 0 || instance_id > UINT32_MAX)
 		return -1;
+#if SDL_MAJOR_VERSION >= 3
+	if(instance_id == 0)
+		return -1;
+#endif
 
 	slot = SystemInputJoystickSlotForInstance(instance_id);
 	if(slot >= 0)
@@ -532,7 +647,7 @@ static void releaseJoystickSlot(int slot) {
 	SystemResetJoySlot(slot);
 }
 
-int SystemInputRemoveJoystickInstance(int instance_id) {
+int SystemInputRemoveJoystickInstance(int64_t instance_id) {
 	int slot = SystemInputJoystickSlotForInstance(instance_id);
 
 	if(slot < 0)
@@ -540,7 +655,7 @@ int SystemInputRemoveJoystickInstance(int instance_id) {
 
 	releaseJoystickSlot(slot);
 	if(joystick_handles[slot] != NULL) {
-		SDL_JoystickClose(joystick_handles[slot]);
+		closeJoystick(joystick_handles[slot]);
 		joystick_handles[slot] = NULL;
 	}
 	joystick_instance_ids[slot] = -1;
@@ -549,30 +664,44 @@ int SystemInputRemoveJoystickInstance(int instance_id) {
 }
 
 #if SDL_MAJOR_VERSION >= 2
-static int openSDL2Joystick(int device_index) {
+static int openJoystick(int64_t device_id) {
 	SDL_Joystick *handle;
-	int instance_id;
+	int64_t instance_id;
 	int slot;
 
-	handle = SDL_JoystickOpen(device_index);
+#if SDL_MAJOR_VERSION >= 3
+	if(device_id <= 0 || device_id > UINT32_MAX)
+		return -1;
+	handle = SDL_OpenJoystick((SDL_JoystickID)device_id);
+#else
+	if(device_id < 0 || device_id > INT_MAX)
+		return -1;
+	handle = SDL_JoystickOpen((int)device_id);
+#endif
 	if(handle == NULL)
 		return -1;
 
-	instance_id = (int)SDL_JoystickInstanceID(handle);
-	if(instance_id < 0) {
-		SDL_JoystickClose(handle);
+#if SDL_MAJOR_VERSION >= 3
+	instance_id = SDL_GetJoystickID(handle);
+	if(instance_id == 0)
+#else
+	instance_id = SDL_JoystickInstanceID(handle);
+	if(instance_id < 0)
+#endif
+	{
+		closeJoystick(handle);
 		return -1;
 	}
 
 	slot = SystemInputJoystickSlotForInstance(instance_id);
 	if(slot >= 0) {
-		SDL_JoystickClose(handle);
+		closeJoystick(handle);
 		return slot;
 	}
 
 	slot = SystemInputAddJoystickInstance(instance_id);
 	if(slot < 0) {
-		SDL_JoystickClose(handle);
+		closeJoystick(handle);
 		return -1;
 	}
 	joystick_handles[slot] = handle;
@@ -585,14 +714,22 @@ void SystemInputShutdown(void) {
 
 	for(slot = 0; slot < GLTRON_INPUT_JOY_SLOT_COUNT; slot++) {
 		if(joystick_handles[slot] != NULL) {
-			SDL_JoystickClose(joystick_handles[slot]);
+			closeJoystick(joystick_handles[slot]);
 			joystick_handles[slot] = NULL;
 		}
 		joystick_instance_ids[slot] = -1;
 		joystick_instance_used[slot] = 0;
 	}
+#if SDL_MAJOR_VERSION >= 3
+	if(joystick_subsystem_owned) {
+		SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+		joystick_subsystem_owned = 0;
+	}
+#endif
 	SystemInputSetRelativeMouseMode(0);
 	SystemInputSetMouseAnchor(0, 0);
+	mouse_remainder_x = 0.0;
+	mouse_remainder_y = 0.0;
 	SystemResetJoyState();
 }
 
@@ -603,17 +740,42 @@ void SystemInputInit(void) {
 
 	SystemInputShutdown();
 
+#if SDL_MAJOR_VERSION >= 3
+	/* SDL3 otherwise rewrites French digits and non-Latin letter keycodes.
+	 * Saved classic bindings refer to the actual translated keyboard layout. */
+	SDL_SetHintWithPriority(SDL_HINT_KEYCODE_OPTIONS, "none", SDL_HINT_OVERRIDE);
+#endif
 #if SDL_MAJOR_VERSION < 2
 	/* SDL 1 synthesizes repeats when enabled; classic GLTron disables them. */
 	SDL_EnableKeyRepeat(0, 0);
 #endif
 
+#if SDL_MAJOR_VERSION >= 3
+	if(!SDL_InitSubSystem(SDL_INIT_JOYSTICK)) {
+#else
 	if(SDL_Init(SDL_INIT_JOYSTICK) < 0) {
+#endif
 		fprintf(stderr, "[init] couldn't initialize joysticks: %s\n",
 			SDL_GetError());
 		return;
 	}
 
+#if SDL_MAJOR_VERSION >= 3
+	joystick_subsystem_owned = 1;
+	{
+		SDL_JoystickID *ids = SDL_GetJoysticks(&joysticks);
+		if(ids != NULL) {
+			for(i = 0; i < joysticks &&
+				 opened < GLTRON_INPUT_JOY_SLOT_COUNT; i++) {
+				if(openJoystick(ids[i]) >= 0)
+					opened++;
+			}
+			SDL_free(ids);
+		}
+	}
+	if(opened > 0)
+		SDL_SetJoystickEventsEnabled(true);
+#else
 	joysticks = SDL_NumJoysticks();
 	if(joysticks < 0)
 		joysticks = 0;
@@ -622,7 +784,7 @@ void SystemInputInit(void) {
 	/* A failed early device must not hide a later usable controller. */
 	for(i = 0; i < joysticks &&
 		 opened < GLTRON_INPUT_JOY_SLOT_COUNT; i++) {
-		if(openSDL2Joystick(i) >= 0)
+		if(openJoystick(i) >= 0)
 			opened++;
 	}
 #else
@@ -636,6 +798,7 @@ void SystemInputInit(void) {
 #endif
 	if(opened > 0)
 		SDL_JoystickEventState(SDL_ENABLE);
+#endif
 }
 
 void SystemHandleInputEvent(const void *native_event) {
@@ -654,19 +817,21 @@ void SystemHandleInputEvent(const void *native_event) {
 		return;
 
 	switch(event->type) {
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
+	case INPUT_KEY_DOWN:
+	case INPUT_KEY_UP:
 #if SDL_MAJOR_VERSION >= 2
 		if(event->key.repeat)
 			break;
 #endif
-		if(event->type == SDL_KEYDOWN) {
+		if(event->type == INPUT_KEY_DOWN) {
 			state = SYSTEM_KEYSTATE_DOWN;
 		} else {
 			state = SYSTEM_KEYSTATE_UP;
 		}
 
-#if SDL_MAJOR_VERSION >= 2
+#if SDL_MAJOR_VERSION >= 3
+		key = SystemInputIdFromSDL3Key(event->key.key);
+#elif SDL_MAJOR_VERSION >= 2
 		key = SystemInputIdFromSDL2Key((int)event->key.keysym.sym);
 #else
 		key = SystemInputIdFromSDL1Key(event->key.keysym.sym);
@@ -674,9 +839,9 @@ void SystemHandleInputEvent(const void *native_event) {
 		if(key != GLTRON_INPUT_INVALID)
 			dispatchKeyboard(state, key);
 		break;
-	case SDL_JOYAXISMOTION:
+	case INPUT_JOY_AXIS:
 #if SDL_MAJOR_VERSION >= 2
-		slot = SystemInputJoystickSlotForInstance((int)event->jaxis.which);
+		slot = SystemInputJoystickSlotForInstance(event->jaxis.which);
 #else
 		slot = (int)event->jaxis.which;
 #endif
@@ -686,45 +851,56 @@ void SystemHandleInputEvent(const void *native_event) {
 		for(i = 0; i < count; i++)
 			dispatchKeyboardTransition(&transitions[i]);
 		break;
-	case SDL_JOYBUTTONDOWN:
-	case SDL_JOYBUTTONUP:
-		if(event->type == SDL_JOYBUTTONDOWN)
+	case INPUT_JOY_BUTTON_DOWN:
+	case INPUT_JOY_BUTTON_UP:
+		if(event->type == INPUT_JOY_BUTTON_DOWN)
 			state = SYSTEM_KEYSTATE_DOWN;
 		else
 			state = SYSTEM_KEYSTATE_UP;
 
 #if SDL_MAJOR_VERSION >= 2
-		slot = SystemInputJoystickSlotForInstance((int)event->jbutton.which);
+		slot = SystemInputJoystickSlotForInstance(event->jbutton.which);
 #else
 		slot = (int)event->jbutton.which;
 #endif
 		dispatchJoystickButton(slot, (int)event->jbutton.button, state);
 		break;
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
-		state = event->type == SDL_MOUSEBUTTONDOWN ?
+	case INPUT_MOUSE_BUTTON_DOWN:
+	case INPUT_MOUSE_BUTTON_UP:
+		state = event->type == INPUT_MOUSE_BUTTON_DOWN ?
 			SYSTEM_MOUSEPRESSED : SYSTEM_MOUSERELEASED;
 		button = (int)event->button.button;
 #if SDL_MAJOR_VERSION >= 2
-		button = legacyMouseButtonFromSDL2(button);
+		button = legacyMouseButtonFromSDL(button);
 #endif
 		SystemMouse(button, state,
-							event->button.x, event->button.y);
+			mouseCoordinate(event->button.x), mouseCoordinate(event->button.y));
 		break;
-	case SDL_MOUSEMOTION:
+	case INPUT_MOUSE_MOTION:
+#if SDL_MAJOR_VERSION >= 3
+		/* Relative deltas retain logical units regardless of drawable density.
+		 * Accumulate fractions so high-resolution mice do not lose slow turns. */
+		SystemInputTranslateMouseMotion(mouseCoordinate(event->motion.x),
+			mouseCoordinate(event->motion.y),
+			relative_mouse_mode ? relativeMouseDelta(event->motion.xrel,
+				&mouse_remainder_x) : 0,
+			relative_mouse_mode ? relativeMouseDelta(event->motion.yrel,
+				&mouse_remainder_y) : 0, &mouse_x, &mouse_y);
+#else
 		SystemInputTranslateMouseMotion(event->motion.x, event->motion.y,
 			event->motion.xrel, event->motion.yrel, &mouse_x, &mouse_y);
+#endif
 		SystemMouseMotion(mouse_x, mouse_y);
 		break;
 #if SDL_MAJOR_VERSION >= 2
-	case SDL_MOUSEWHEEL:
-		dispatchSDL2MouseWheel(&event->wheel);
+	case INPUT_MOUSE_WHEEL:
+		dispatchSDLMouseWheel(&event->wheel);
 		break;
-	case SDL_JOYDEVICEADDED:
-		openSDL2Joystick((int)event->jdevice.which);
+	case INPUT_JOY_ADDED:
+		openJoystick(event->jdevice.which);
 		break;
-	case SDL_JOYDEVICEREMOVED:
-		SystemInputRemoveJoystickInstance((int)event->jdevice.which);
+	case INPUT_JOY_REMOVED:
+		SystemInputRemoveJoystickInstance(event->jdevice.which);
 		break;
 #endif
 	default:

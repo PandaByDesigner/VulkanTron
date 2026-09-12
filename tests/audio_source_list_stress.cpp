@@ -3,8 +3,8 @@
 #include "audio/nebu_SourceMusic.h"
 #include "audio/nebu_SourceSample.h"
 
-#include <SDL.h>
-#ifndef GLTRON_SDL2_AUDIO
+#include "audio/nebu_AudioSDL.h"
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
 #include <SDL_sound.h>
 #endif
 
@@ -25,6 +25,7 @@ std::atomic<unsigned long> copies_mixed(0);
 std::atomic<unsigned long> music_destroyed(0);
 std::atomic<unsigned long> music_mixed(0);
 std::atomic<unsigned long> blocking_destroyed(0);
+std::atomic<unsigned long> invalid_mix_blocks(0);
 
 class DecoderGuard {
 public:
@@ -46,7 +47,13 @@ public:
 
   virtual ~OneShotSource() { ++destroyed; }
 
-  virtual int Mix(Uint8 *, int) {
+  virtual int Mix(Uint8 *, int len) {
+#ifdef GLTRON_SDL3_AUDIO
+    if(len != Sound::System::kMixChunkBytes)
+      ++invalid_mix_blocks;
+#else
+    (void)len;
+#endif
     ++mixed;
     _isPlaying = 0;
     return 1;
@@ -82,21 +89,21 @@ public:
 
 class BlockingSource : public Sound::Source {
 public:
-  BlockingSource(SDL_sem *entered, SDL_sem *release)
+  BlockingSource(NebuAudioSemaphore *entered, NebuAudioSemaphore *release)
       : entered_(entered), release_(release) {}
 
   virtual ~BlockingSource() { ++blocking_destroyed; }
 
   virtual int Mix(Uint8 *, int) {
-    SDL_SemPost(entered_);
-    SDL_SemWait(release_);
+    nebu_AudioSemPost(entered_);
+    nebu_AudioSemWait(release_);
     _isPlaying = 0;
     return 1;
   }
 
 private:
-  SDL_sem *entered_;
-  SDL_sem *release_;
+  NebuAudioSemaphore *entered_;
+  NebuAudioSemaphore *release_;
 };
 
 bool parseSourceCount(const char *value, unsigned long *result) {
@@ -131,9 +138,9 @@ void closeAudio(Sound::System *system) {
 }
 
 bool runContentionCase(Sound::System *system, bool add_source) {
-  SDL_sem *entered = SDL_CreateSemaphore(0);
-  SDL_sem *begin_release = SDL_CreateSemaphore(0);
-  SDL_sem *release = SDL_CreateSemaphore(0);
+  NebuAudioSemaphore *entered = SDL_CreateSemaphore(0);
+  NebuAudioSemaphore *begin_release = SDL_CreateSemaphore(0);
+  NebuAudioSemaphore *release = SDL_CreateSemaphore(0);
   if (entered == NULL || begin_release == NULL || release == NULL) {
     std::fprintf(stderr, "failed to allocate contention semaphores: %s\n",
                  SDL_GetError());
@@ -151,9 +158,9 @@ bool runContentionCase(Sound::System *system, bool add_source) {
   blocking->Start();
   system->AddSource(blocking);
 
-  if (SDL_SemWaitTimeout(entered, 5000) != 0) {
+  if (nebu_AudioSemWaitTimeout(entered, 5000) != 0) {
     std::fprintf(stderr, "audio callback did not enter contention source\n");
-    SDL_SemPost(release);
+    nebu_AudioSemPost(release);
     system->Lock();
     blocking->Pause();
     system->Unlock();
@@ -165,12 +172,12 @@ bool runContentionCase(Sound::System *system, bool add_source) {
   }
 
   std::thread releaser([begin_release, release]() {
-    SDL_SemWait(begin_release);
+    nebu_AudioSemWait(begin_release);
     SDL_Delay(30);
-    SDL_SemPost(release);
+    nebu_AudioSemPost(release);
   });
 
-  SDL_SemPost(begin_release);
+  nebu_AudioSemPost(begin_release);
   Uint32 started = SDL_GetTicks();
   if (add_source) {
     OneShotSource *inserted = new OneShotSource;
@@ -202,11 +209,11 @@ int main(int argc, char **argv) {
   unsigned long source_count = 100000;
   const unsigned long batch_size = 128;
   const char *music_path = NULL;
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
   const char *one_shot_music_path = NULL;
 #endif
 
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
   if (argc > 3 || (argc >= 2 && !parseSourceCount(argv[1], &source_count))) {
     std::fprintf(stderr,
                  "usage: %s [positive-source-count [music-path]]\n",
@@ -224,18 +231,18 @@ int main(int argc, char **argv) {
 #endif
   if (argc >= 3)
     music_path = argv[2];
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
   if (argc == 4)
     one_shot_music_path = argv[3];
 #endif
 
-  if (SDL_Init(SDL_INIT_AUDIO) != 0) {
+  if (!nebu_InitAudio()) {
     std::fprintf(stderr, "SDL audio initialization failed: %s\n",
                  SDL_GetError());
     return 1;
   }
   if (!Sound::InitDecoder()) {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     std::fprintf(stderr, "tracker decoder initialization failed\n");
 #else
     std::fprintf(stderr, "SDL_sound initialization failed: %s\n",
@@ -251,9 +258,11 @@ int main(int argc, char **argv) {
   SDL_memset(&requested, 0, sizeof(requested));
   SDL_memset(&obtained, 0, sizeof(obtained));
   requested.freq = 22050;
-  requested.format = AUDIO_S16SYS;
+  requested.format = NEBU_AUDIO_S16;
   requested.channels = 2;
+#ifndef GLTRON_SDL3_AUDIO
   requested.samples = 64;
+#endif
 
   Sound::System system(&requested);
 
@@ -271,8 +280,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+#ifndef GLTRON_SDL3_AUDIO
   requested.callback = system.GetCallback();
   requested.userdata = &system;
+#endif
   if (system.OpenAudio(&requested, &obtained) != 0) {
     std::fprintf(stderr, "SDL dummy audio open failed: %s\n", SDL_GetError());
     return 1;
@@ -311,10 +322,14 @@ int main(int argc, char **argv) {
   }
 
   Sound::SourceSample *sample = new Sound::SourceSample(&system);
+#ifdef GLTRON_SDL3_AUDIO
+  const int callback_bytes = Sound::System::kMixChunkBytes;
+#else
   const int callback_bytes =
       obtained.size > 0
           ? static_cast<int>(obtained.size)
           : requested.samples * requested.channels * sizeof(Sint16);
+#endif
   sample->_buffersize = callback_bytes * 2;
   sample->_buffer = new Uint8[sample->_buffersize];
   std::memset(sample->_buffer, 0, sample->_buffersize);
@@ -393,7 +408,7 @@ int main(int argc, char **argv) {
   }
 
   unsigned long expected_music_destroyed = music_reloads;
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
   const unsigned long one_shot_music_count = one_shot_music_path == NULL ? 0 : 1;
   if (one_shot_music_path != NULL) {
     TrackedMusic *one_shot_music = new TrackedMusic(&system);
@@ -454,7 +469,8 @@ int main(int argc, char **argv) {
       deterministic_sources + contention_insert_sources + source_count;
   if (created.load() != expected_created ||
       destroyed.load() != expected_created || mixed.load() != source_count ||
-      blocking_destroyed.load() != 2 || copies_destroyed.load() != copy_count ||
+      blocking_destroyed.load() != 2 || invalid_mix_blocks.load() != 0 ||
+      copies_destroyed.load() != copy_count ||
       copies_mixed.load() < copy_count ||
       (expected_music_destroyed != 0 &&
        (music_destroyed.load() != expected_music_destroyed ||

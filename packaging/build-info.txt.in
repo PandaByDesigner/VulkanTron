@@ -1,0 +1,10 @@
+GLTron Faithful Remaster @GLTRON_DISPLAY_VERSION@
+Source revision at configuration: @GLTRON_REVISION@
+Platform: @GLTRON_SDL_BACKEND@ @GLTRON_SDL_VERSION@
+Renderer: classic fixed-function OpenGL
+Audio: @GLTRON_AUDIO_DESCRIPTION@
+System: @CMAKE_SYSTEM_NAME@ @CMAKE_SYSTEM_PROCESSOR@
+C compiler: @CMAKE_C_COMPILER_ID@ @CMAKE_C_COMPILER_VERSION@
+C++ compiler: @CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@
+Build type: @CMAKE_BUILD_TYPE@
+Address/undefined sanitizers: @GLTRON_ENABLE_SANITIZERS@

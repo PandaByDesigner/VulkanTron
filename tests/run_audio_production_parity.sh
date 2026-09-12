@@ -63,7 +63,7 @@ require_equal() {
     fail "$label: expected $expected, got $actual"
 }
 
-for tool in sdl-config sdl2-config "$test_cxx"; do
+for tool in sdl-config sdl2-config pkg-config "$test_cxx"; do
   command -v "$tool" >/dev/null 2>&1 || fail "missing required tool: $tool"
 done
 
@@ -74,9 +74,12 @@ $repo_dir/nebu/audio/Source.cpp
 $repo_dir/nebu/audio/SourceCopy.cpp
 $repo_dir/nebu/audio/SourceMusic.cpp
 $repo_dir/nebu/audio/SourceSample.cpp
+$repo_dir/nebu/audio/Source3D.cpp
+$repo_dir/nebu/audio/SourceEngine.cpp
 "
 classic=$build_dir/audio-production-classic
 native=$build_dir/audio-production-sdl2
+native3=$build_dir/audio-production-sdl3
 
 # These must remain distinct processes: SDL_sound is linked to SDL1 while the
 # replacement production objects are compiled directly against SDL2.
@@ -95,18 +98,27 @@ native=$build_dir/audio-production-sdl2
   $(sdl2-config --libs) -lmikmod -pthread \
   -o "$native"
 
+
+"$test_cxx" -std=c++11 $compile_flags -Wall -Wextra -Werror \
+  -DGLTRON_SDL3_AUDIO \
+  -I"$repo_dir/nebu/include" \
+  $(pkg-config --cflags sdl3) \
+  $sources \
+  $(pkg-config --libs sdl3) -lmikmod -pthread \
+  -o "$native3"
+
 run_probe() {
   executable=$1
   if [ "$mode" = asan ]; then
     ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_leaks=0 \
     UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-    SDL_AUDIODRIVER=dummy "$executable" \
+    SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy "$executable" \
       "$repo_dir/data/game_crash.wav" \
       "$repo_dir/data/game_engine.wav" \
       "$repo_dir/data/game_recognizer.wav" \
       "$repo_dir/music/song_revenge_of_cats.it"
   else
-    SDL_AUDIODRIVER=dummy "$executable" \
+    SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy "$executable" \
       "$repo_dir/data/game_crash.wav" \
       "$repo_dir/data/game_engine.wav" \
       "$repo_dir/data/game_recognizer.wav" \
@@ -116,6 +128,10 @@ run_probe() {
 
 classic_output=$(run_probe "$classic")
 native_output=$(run_probe "$native")
+native3_output=$(run_probe "$native3")
+
+require_equal "production SDL1/SDL3 object output" \
+  "$classic_output" "$native3_output"
 
 require_equal "production SDL1/SDL2 object output" \
   "$classic_output" "$native_output"
@@ -167,12 +183,21 @@ require_equal "finite loop EOF stop" 1 \
   "$(field "$native_output" eof_stop)"
 require_equal "audio wrapper lifecycle" 1 \
   "$(field "$native_output" wrappers)"
+require_equal "spatial panning and doppler mix hash" e6f032ebaff3e61d \
+  "$(field "$native_output" spatial_fnv1a)"
+require_equal "player engine pitch and boost mix hash" e8f916760eb7a382 \
+  "$(field "$native_output" engine_mix_fnv1a)"
+require_equal "spatial mixer wrapped cursor" 193352 \
+  "$(field "$native_output" spatial_cursor)"
+require_equal "engine mixer wrapped cursor" 224864 \
+  "$(field "$native_output" engine_cursor)"
 
 printf 'PASS: production SourceSample PCM parity for all three effects\n'
 printf 'PASS: production SourceSample full/half-volume and boundary parity\n'
 printf 'PASS: production SourceCopy independent-cursor and overlap parity\n'
+printf 'PASS: production spatial panning/doppler and engine boost/pitch parity\n'
 printf 'PASS: production SourceMusic first 4 MiB parity (%s)\n' \
   "$(field "$native_output" music_prefix_fnv1a)"
 printf 'PASS: production SourceMusic finite-loop reset (%s) and EOF stop\n' \
   "$(field "$native_output" reset_prefix_fnv1a)"
-printf 'PASS: SDL1/SDL2 production audio-object parity\n'
+printf 'PASS: SDL1/SDL2/SDL3 production audio-object parity\n'

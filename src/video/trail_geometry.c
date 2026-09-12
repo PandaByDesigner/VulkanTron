@@ -1,6 +1,54 @@
 #include "video/trail_geometry.h"
 
 #include <math.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+void trailMeshFree(TrailMesh *pMesh) {
+	free(pMesh->pVertices);
+	free(pMesh->pNormals);
+	free(pMesh->pColors);
+	free(pMesh->pTexCoords);
+	free(pMesh->pIndices);
+	memset(pMesh, 0, sizeof(*pMesh));
+}
+
+int trailMeshAllocate(TrailMesh *pMesh, int completedSegments) {
+	size_t vertices, indices;
+	memset(pMesh, 0, sizeof(*pMesh));
+	/* Every completed segment needs at most four vertices and six indices.
+	 * The two current-trail sections and eleven bow pairs add 30 vertices
+	 * and write 72 indices. Keep the classic iUsed count/winding unchanged,
+	 * including the last bow quad that is stored but not submitted. */
+	if(completedSegments < 0 || completedSegments > (INT_MAX - 72) / 6) {
+		fprintf(stderr, "[video] trail mesh exceeds the supported draw count\n");
+		return 0;
+	}
+	vertices = (size_t)completedSegments * 4u + 30u;
+	indices = (size_t)completedSegments * 6u + 72u;
+	if(vertices > INT_MAX || vertices > SIZE_MAX / sizeof(vec3) ||
+	   indices > SIZE_MAX / sizeof(GLuint)) {
+		fprintf(stderr, "[video] trail mesh allocation size overflow\n");
+		return 0;
+	}
+	pMesh->pVertices = malloc(vertices * sizeof(*pMesh->pVertices));
+	pMesh->pNormals = malloc(vertices * sizeof(*pMesh->pNormals));
+	pMesh->pColors = malloc(vertices * 4u * sizeof(*pMesh->pColors));
+	pMesh->pTexCoords = malloc(vertices * sizeof(*pMesh->pTexCoords));
+	pMesh->pIndices = malloc(indices * sizeof(*pMesh->pIndices));
+	if(pMesh->pVertices == NULL || pMesh->pNormals == NULL ||
+	   pMesh->pColors == NULL || pMesh->pTexCoords == NULL ||
+	   pMesh->pIndices == NULL) {
+		trailMeshFree(pMesh);
+		fprintf(stderr, "[video] not enough memory for trail mesh\n");
+		return 0;
+	}
+	pMesh->vertexCapacity = (unsigned int)vertices;
+	pMesh->iSize = (unsigned int)indices;
+	return 1;
+}
 
 enum {
 	COLOR_TRAIL, COLOR_BRIGHT, COLOR_CYCLE
@@ -232,4 +280,3 @@ void bowGeometry(Player *pPlayer, PlayerVisual *pV,
 	*piOffset = iOffset;
 	*pvOffset = vOffset;
 }
-

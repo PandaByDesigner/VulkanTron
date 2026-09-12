@@ -1,7 +1,12 @@
 #include "base/nebu_system.h"
 #include "input/nebu_input_system.h"
+#include "video/nebu_video_system.h"
 
+#ifdef GLTRON_USE_SDL3
+#include <SDL3/SDL.h>
+#else
 #include "SDL.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -32,7 +37,7 @@ void SystemExit() {
 
 unsigned int SystemGetElapsedTime() {
   /* fprintf(stderr, "%d\n", SDL_GetTicks()); */
-  return SDL_GetTicks();
+  return (unsigned int)SDL_GetTicks();
 }
 
 void SystemDelay(unsigned int milliseconds) {
@@ -45,13 +50,13 @@ int SystemMainLoop() {
 	return_code = -1;
   while(return_code == -1) {
     while(SDL_PollEvent(&event) && current) {
+#if SDL_MAJOR_VERSION >= 3
+      int quit_requested = (event.type == SDL_EVENT_QUIT);
+#else
       int quit_requested = (event.type == SDL_QUIT);
-
-#if SDL_MAJOR_VERSION >= 2
-      if(event.type == SDL_WINDOWEVENT &&
-         event.window.event == SDL_WINDOWEVENT_CLOSE)
-        quit_requested = 1;
 #endif
+      if(SystemHandleWindowEvent(&event))
+        quit_requested = 1;
 
       if(quit_requested)
         SystemExit();

@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <stdio.h>
 #include <string.h>
 
 namespace Sound {
@@ -25,14 +26,14 @@ namespace Sound {
   }
 
   void SourceSample::Load(char *filename) {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     SDL_AudioSpec loaded;
     Uint8 *loaded_buffer = NULL;
     Uint32 loaded_size = 0;
     Uint8 *decoded_buffer = NULL;
     int decoded_size = 0;
 
-    if(SDL_LoadWAV(filename, &loaded, &loaded_buffer, &loaded_size) == NULL) {
+    if(!SDL_LoadWAV(filename, &loaded, &loaded_buffer, &loaded_size)) {
       fprintf(stderr, "[error] failed loading sample from '%s': %s\n",
               filename, SDL_GetError());
       return;
@@ -41,7 +42,7 @@ namespace Sound {
     AudioInfo *desired = _system->GetAudioInfo();
     if(loaded_size > INT_MAX) {
       fprintf(stderr, "[error] sample '%s' is too large\n", filename);
-      SDL_FreeWAV(loaded_buffer);
+      SDL_free(loaded_buffer);
       return;
     }
 
@@ -52,6 +53,23 @@ namespace Sound {
       decoded_buffer = new Uint8[decoded_size];
       memcpy(decoded_buffer, loaded_buffer, decoded_size);
     } else {
+#ifdef GLTRON_SDL3_AUDIO
+      SDL_AudioSpec target;
+      target.freq = desired->rate;
+      target.format = (SDL_AudioFormat) desired->format;
+      target.channels = desired->channels;
+      Uint8 *converted = NULL;
+      if(!SDL_ConvertAudioSamples(&loaded, loaded_buffer, (int)loaded_size,
+                                  &target, &converted, &decoded_size)) {
+        fprintf(stderr, "[error] failed converting sample '%s': %s\n",
+                filename, SDL_GetError());
+        SDL_free(loaded_buffer);
+        return;
+      }
+      decoded_buffer = new Uint8[decoded_size];
+      memcpy(decoded_buffer, converted, decoded_size);
+      SDL_free(converted);
+#else
       SDL_AudioCVT cvt;
       int conversion = SDL_BuildAudioCVT(&cvt,
                                          loaded.format,
@@ -64,7 +82,7 @@ namespace Sound {
          loaded_size > (Uint32) (INT_MAX / (cvt.len_mult > 0 ? cvt.len_mult : 1))) {
         fprintf(stderr, "[error] failed preparing sample '%s': %s\n",
                 filename, SDL_GetError());
-        SDL_FreeWAV(loaded_buffer);
+        SDL_free(loaded_buffer);
         return;
       }
 
@@ -72,7 +90,7 @@ namespace Sound {
       cvt.buf = (Uint8*) SDL_malloc(cvt.len * cvt.len_mult);
       if(cvt.buf == NULL) {
         fprintf(stderr, "[error] out of memory loading sample '%s'\n", filename);
-        SDL_FreeWAV(loaded_buffer);
+        SDL_free(loaded_buffer);
         return;
       }
       memcpy(cvt.buf, loaded_buffer, loaded_size);
@@ -81,7 +99,7 @@ namespace Sound {
         fprintf(stderr, "[error] failed converting sample '%s': %s\n",
                 filename, SDL_GetError());
         SDL_free(cvt.buf);
-        SDL_FreeWAV(loaded_buffer);
+        SDL_free(loaded_buffer);
         return;
       }
 
@@ -89,9 +107,10 @@ namespace Sound {
       decoded_buffer = new Uint8[decoded_size];
       memcpy(decoded_buffer, cvt.buf, decoded_size);
       SDL_free(cvt.buf);
+#endif
     }
 
-    SDL_FreeWAV(loaded_buffer);
+    SDL_free(loaded_buffer);
     if(_buffer != NULL)
       delete[] _buffer;
     _buffer = decoded_buffer;
@@ -106,7 +125,7 @@ namespace Sound {
 					   _system->GetAudioInfo(),
 					   _buffersize );
     if(sample == NULL) {
-      fprintf(stderr, "[error] failed loading sample from '%s': %s\n", 
+      fprintf(stderr, "[error] failed loading sample from '%s': %s\n",
 	      filename, Sound_GetError());
       return;
     }
@@ -128,24 +147,15 @@ namespace Sound {
     if(_buffer == NULL)
       return 0;
 
-    int volume = (int)(_volume * SDL_MIX_MAXVOLUME);
+    int volume = (int)(_volume * NEBU_MIX_MAXVOLUME);
     assert(len < _buffersize);
 
     if(len < _buffersize - _position) {
-#ifdef GLTRON_SDL2_AUDIO
-      SDL_MixAudioFormat(data, _buffer + _position, AUDIO_S16SYS, len, volume);
-#else
-      SDL_MixAudio(data, _buffer + _position, len, volume);
-#endif
+      nebu_MixAudio(data, _buffer + _position, len, volume);
       _position += len;
     } else { 
-#ifdef GLTRON_SDL2_AUDIO
-      SDL_MixAudioFormat(data, _buffer + _position, AUDIO_S16SYS,
+      nebu_MixAudio(data, _buffer + _position,
 		                 _buffersize - _position, volume);
-#else
-      SDL_MixAudio(data, _buffer + _position, _buffersize - _position,
-		   volume);
-#endif
       len -= _buffersize - _position;
 
       // printf("end of sample reached!\n");
@@ -154,11 +164,7 @@ namespace Sound {
 	  _loop--;
 
 	_position = 0;
-#ifdef GLTRON_SDL2_AUDIO
-	SDL_MixAudioFormat(data, _buffer + _position, AUDIO_S16SYS, len, volume);
-#else
-	SDL_MixAudio(data, _buffer + _position, len, volume);
-#endif
+	nebu_MixAudio(data, _buffer + _position, len, volume);
 	_position += len;
       } else {
 	_isPlaying = 0;

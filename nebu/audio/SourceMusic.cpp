@@ -9,7 +9,7 @@ namespace Sound {
   SourceMusic::SourceMusic(System *system) { 
     _system = system;
 
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     _module = NULL;
 #else
     _sample = NULL;
@@ -20,7 +20,7 @@ namespace Sound {
 		_buffer = (Uint8*) malloc( _buffersize );
 		if(_buffer != NULL)
 			memset(_buffer, 0, _buffersize);
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     _sample_buffer = (Uint8*) malloc(_sample_buffersize);
 #endif
 
@@ -28,7 +28,7 @@ namespace Sound {
     _read = 0;
 
     _filename = NULL;
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
     _rwops = NULL;
 #endif
   }
@@ -36,14 +36,14 @@ namespace Sound {
   SourceMusic::~SourceMusic() { 
     // fprintf(stderr, "nebu_SourceMusic destructor called\n");
 #ifndef macintosh
-		SDL_SemWait(_sem);
+		nebu_AudioSemWait(_sem);
 #else
         SDL_LockAudio();
 #endif
 		free(_buffer);
 
     CleanUp();
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     free(_sample_buffer);
     _sample_buffer = NULL;
 #endif
@@ -52,7 +52,7 @@ namespace Sound {
       free(_filename);
 
 #ifndef macintosh		
-		SDL_SemPost(_sem);
+		nebu_AudioSemPost(_sem);
 #else
         SDL_UnlockAudio();
 #endif
@@ -65,9 +65,9 @@ namespace Sound {
 	*/
 
   int SourceMusic::CreateSample(void) {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     AudioInfo *info = _system->GetAudioInfo();
-    if(info->format != AUDIO_S16SYS || info->channels != 2) {
+    if(info->format != NEBU_AUDIO_S16 || info->channels != 2) {
       fprintf(stderr,
               "[error] tracker decoder requires signed 16-bit stereo output\n");
       return 0;
@@ -127,7 +127,7 @@ namespace Sound {
 
   int SourceMusic::Load(char *filename) {
 		if(_buffer == NULL
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 		   || _sample_buffer == NULL
 #endif
 		  ) {
@@ -144,7 +144,7 @@ namespace Sound {
   }
 
   int SourceMusic::HasSample(void) const {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     return _module != NULL;
 #else
     return _sample != NULL;
@@ -155,7 +155,7 @@ namespace Sound {
 		_read = 0;
     _decoded = 0;
 
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     if(_module != NULL) {
       LockDecoder();
       Player_Free(_module);
@@ -173,45 +173,33 @@ namespace Sound {
 
   int SourceMusic::Mix(Uint8 *data, int len) {
 #ifndef macintosh
-		if(SDL_SemTryWait(_sem))
+		if(nebu_AudioSemTryWait(_sem))
 			return 0;
 #endif
 	if(!HasSample()) {
 #ifndef macintosh
-			SDL_SemPost(_sem);
+			nebu_AudioSemPost(_sem);
 #endif
       return 0;
     }
 		// printf("mixing %d bytes\n", len);
 
-    int volume = (int)(_volume * SDL_MIX_MAXVOLUME);
+    int volume = (int)(_volume * NEBU_MIX_MAXVOLUME);
     // fprintf(stderr, "setting volume to %.3f -> %d\n", _volume, volume);
     // fprintf(stderr, "entering mixer\n");
 		
     if(len < (_decoded - _read + _buffersize) % _buffersize) {
 			// enough data to mix
 			if(_read + len <= _buffersize) {
-#ifdef GLTRON_SDL2_AUDIO
-				SDL_MixAudioFormat(data, _buffer + _read, AUDIO_S16SYS, len, volume);
-#else
-				SDL_MixAudio(data, _buffer + _read, len, volume);
-#endif
+				nebu_MixAudio(data, _buffer + _read, len, volume);
 				_read = (_read + len) % _buffersize;
 			} else {
 				// wrap around in buffer
-#ifdef GLTRON_SDL2_AUDIO
-				SDL_MixAudioFormat(data, _buffer + _read, AUDIO_S16SYS,
+				nebu_MixAudio(data, _buffer + _read,
 				                   _buffersize - _read, volume);
-#else
-				SDL_MixAudio(data, _buffer + _read, _buffersize - _read, volume);
-#endif
 				len -= _buffersize - _read;
-#ifdef GLTRON_SDL2_AUDIO
-				SDL_MixAudioFormat(data + _buffersize - _read, _buffer,
-				                   AUDIO_S16SYS, len, volume);
-#else
-				SDL_MixAudio(data + _buffersize - _read, _buffer, len, volume);
-#endif
+				nebu_MixAudio(data + _buffersize - _read, _buffer,
+				                   len, volume);
 				_read = len;
 			}
 		} else {
@@ -219,14 +207,14 @@ namespace Sound {
 		}
 
 #ifndef macintosh
-		SDL_SemPost(_sem);
+		nebu_AudioSemPost(_sem);
 #endif
     return 1;
 	}
 
 	void SourceMusic::Idle(void) {
 #ifndef macintosh
-		if(SDL_SemWait(_sem))
+		if(nebu_AudioSemWait(_sem))
 			return;
 #else
 		SDL_LockAudio();
@@ -234,7 +222,7 @@ namespace Sound {
 
 		if(!HasSample()) {
 #ifndef macintosh
-			SDL_SemPost(_sem);
+			nebu_AudioSemPost(_sem);
 #else
 			SDL_UnlockAudio();
 #endif
@@ -247,7 +235,7 @@ namespace Sound {
 					 _sample_buffersize )	{
 			// if(_read == _decoded)	printf("_read == _decoded == %d\n", _read);
 			// fill the buffer
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
       int at_end;
       int count;
       LockDecoder();
@@ -261,7 +249,7 @@ namespace Sound {
 #endif
 			// printf("adding %d bytes to buffer\n", count);
 			if(count <= _buffersize - _decoded) {
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 				memcpy(_buffer + _decoded, _sample_buffer, count);
 #else
 				memcpy(_buffer + _decoded, _sample->buffer, count);
@@ -270,7 +258,7 @@ namespace Sound {
 				// wrapping around end of buffer (usually doesn't happen when 
 				// _buffersize is a multiple of _sample_buffersize)
 				// printf("wrapping around end of buffer\n");
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 				memcpy(_buffer + _decoded, _sample_buffer, _buffersize - _decoded);
 				memcpy(_buffer, _sample_buffer + _buffersize - _decoded,
 							 count - (_buffersize - _decoded));
@@ -283,7 +271,7 @@ namespace Sound {
 			_decoded = (_decoded + count) % _buffersize;
 
 			// check for end of sample, loop
-#ifdef GLTRON_SDL2_AUDIO
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
       if(at_end) {
 #else
 			if((_sample->flags & SOUND_SAMPLEFLAG_ERROR) ||
@@ -324,7 +312,7 @@ namespace Sound {
 		} // buffer has been filled
 
 #ifndef macintosh
-		SDL_SemPost(_sem);
+		nebu_AudioSemPost(_sem);
 #else
 		SDL_UnlockAudio();
 #endif

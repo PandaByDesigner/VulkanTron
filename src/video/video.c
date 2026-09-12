@@ -33,13 +33,13 @@ int initWindow(void) {
 
   SystemInitDisplayMode(flags, fullscreen);
 
-  win_id = SystemCreateWindow("gltron");      
+  win_id = SystemCreateWindow("GLTron Faithful Remaster");
 
   if (win_id < 0) { 
     if( getSettingi("use_stencil") ) {
       flags &= ~SYSTEM_STENCIL;
       SystemInitDisplayMode(flags, fullscreen);
-      win_id = SystemCreateWindow("gltron");      
+      win_id = SystemCreateWindow("GLTron Faithful Remaster");
       if(win_id >= 0) {
 	setSettingi("use_stencil", 0);
 	goto SKIP;
@@ -61,16 +61,37 @@ int initWindow(void) {
 }
 
 void reshape(int x, int y) {
-  if(x < getSettingi("height") || x < getSettingi("width"))
-    initGameScreen();
-  if(x > getSettingi("width") )
-    gScreen->vp_x = (x - getSettingi("width")) / 2;
-  if(y > getSettingi("height") )
-    gScreen->vp_y = (y - getSettingi("height")) / 2;
+  int window_width, window_height;
+  if(gScreen == NULL || x <= 0 || y <= 0)
+    return;
+  gScreen->w = gScreen->vp_w = x;
+  gScreen->h = gScreen->vp_h = y;
+  gScreen->vp_x = gScreen->vp_y = 0;
+  setSettingi("windowMode", SystemIsFullscreen() ? 0 : 1);
+  if(!SystemIsFullscreen()) {
+    SystemGetWindowSize(&window_width, &window_height);
+    if(window_width > 0 && window_height > 0) {
+      setSettingi("width", window_width);
+      setSettingi("height", window_height);
+    }
+  }
   changeDisplay(-1);
 }
 
+int applyWindowSettings(void) {
+  int flags = SYSTEM_RGBA | SYSTEM_DOUBLE | SYSTEM_DEPTH;
+  unsigned char full = getSettingi("windowMode") == 0 ? SYSTEM_FULLSCREEN : 0;
+  if(getSettingi("bitdepth_32")) flags |= SYSTEM_32_BIT;
+  if(getSettingi("use_stencil")) flags |= SYSTEM_STENCIL;
+  if(!SystemApplyWindow(getSettingi("width"), getSettingi("height"), flags, full))
+    return 0;
+  if(full || getSettingi("mouse_warp")) SystemGrabInput();
+  else SystemUngrabInput();
+  return 1;
+}
+
 void shutdownDisplay(Visual *d) {
+  VideoCancelPendingScreenshots();
   deleteTextures(d);
   deleteFonts();
   SystemDestroyWindow(d->win_id);
@@ -99,7 +120,7 @@ static void loadModels(void) {
 		recognizer = readMeshFromFile(path, TRI_MESH);
 		/* old code did normalize & invert normals & rescale to size = 60 */
 	} else {
-		fprintf(stderr, "fatal: could not load %s - exiting...\n", path);
+		fprintf(stderr, "fatal: could not load recognizer model - exiting...\n");
 		exit(1); /* OK: critical, installation corrupt */
 	}
 	free(path);
@@ -110,7 +131,7 @@ static void loadModels(void) {
 		recognizer_quad = readMeshFromFile(path, QUAD_MESH);
 		/* old code did normalize & invert normals & rescale to size = 60 */
 	} else {
-		fprintf(stderr, "fatal: could not load %s - exiting...\n", path);
+		fprintf(stderr, "fatal: could not load recognizer model - exiting...\n");
 		exit(1); /* OK: critical, installation corrupt */
 	}
 	free(path);
@@ -124,8 +145,8 @@ static void loadModels(void) {
 			fprintf(stderr, "fatal: could not load model %s - exiting...\n", lc_lod_names[i]);
 			exit(1); /* OK: critical, installation corrupt */
 		}
+		free(path);
 	}
-	free(path);
 }
 
 void initVideoData(void) {

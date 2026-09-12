@@ -63,7 +63,7 @@ void trailRender(TrailMesh *pMesh) {
 
 	checkGLError("texcoord pointer");
 
-	glDrawElements(GL_TRIANGLES, pMesh->iUsed, GL_UNSIGNED_SHORT, pMesh->pIndices);
+	glDrawElements(GL_TRIANGLES, pMesh->iUsed, GL_UNSIGNED_INT, pMesh->pIndices);
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);

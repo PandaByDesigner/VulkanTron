@@ -1,5 +1,5 @@
 #ifndef DIRSETUP_H
-#define DIRESTUP_H
+#define DIRSETUP_H
 
 #include "path.h"
 

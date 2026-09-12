@@ -66,7 +66,11 @@ extern void reloadArt(void);
 // #include "extgl.h"
 // #include <GL/gl.h>
 #define NO_SDL_GLEXT
+#ifdef GLTRON_USE_SDL3
+#include <SDL3/SDL_opengl.h>
+#else
 #include "SDL_opengl.h"
+#endif
 // #include <GL/glext.h>
 
 enum {
@@ -201,6 +205,7 @@ extern void freeTextureData(texture *tex);
 extern FontTex *ftxLoadFont(const char *filename);
 extern void ftxUnloadFont(FontTex *ftx);
 extern void loadTexture(const char *filename, int format);
+extern int loadTextureChecked(const char *filename, int format);
 
 /* It's not necessary to bind the texture explicitly. */
 /* (and we don't know which texture to bind) */
@@ -227,6 +232,7 @@ extern void initGLGame(void);
 
 extern void shutdownDisplay(Visual *d);
 extern void setupDisplay(Visual *d);
+extern int applyWindowSettings(void);
 
 extern void initFonts(void);
 extern void initTexture(Visual*);
@@ -239,6 +245,8 @@ extern void loadTexture(const char *filename, int format);
 /* screenshot.c */
 extern void doBmpScreenShot(Visual *display);
 extern void doPngScreenShot(Visual *display);
+extern int VideoCaptureScreenshot(const char *filename, int png_format);
+extern void VideoCancelPendingScreenshots(void);
 
 /* probably common graphics stuff -> graphics.c */
 

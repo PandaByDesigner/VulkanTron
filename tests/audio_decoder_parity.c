@@ -1,4 +1,10 @@
+#ifdef GLTRON_SDL3_AUDIO
+#include <SDL3/SDL.h>
+#define NEBU_AUDIO_S16 SDL_AUDIO_S16
+#else
 #include <SDL.h>
+#define NEBU_AUDIO_S16 AUDIO_S16SYS
+#endif
 
 #ifdef GLTRON_AUDIO_CLASSIC
 #include <SDL_sound.h>
@@ -56,7 +62,7 @@ static int decode_asset(const char *kind, const char *path,
   Sound_Sample *sample;
 
   (void)kind;
-  desired.format = AUDIO_S16SYS;
+  desired.format = NEBU_AUDIO_S16;
   desired.channels = OUTPUT_CHANNELS;
   desired.rate = OUTPUT_RATE;
 
@@ -121,8 +127,8 @@ static int decode_wav(const char *path, DecodeResult *result) {
   Uint8 *buffer = NULL;
   Uint32 size = 0;
 
-  if(SDL_LoadWAV(path, &spec, &buffer, &size) == NULL) {
-    fprintf(stderr, "SDL2 failed to load %s: %s\n", path, SDL_GetError());
+  if(SDL_LoadWAV(path, &spec, &buffer, &size) == 0) {
+    fprintf(stderr, "native SDL failed to load %s: %s\n", path, SDL_GetError());
     return 0;
   }
 
@@ -131,7 +137,7 @@ static int decode_wav(const char *path, DecodeResult *result) {
   result->rate = (unsigned int)spec.freq;
   consume_bytes(result, buffer, size);
   result->eof = 1;
-  SDL_FreeWAV(buffer);
+  SDL_free(buffer);
   return 1;
 }
 
@@ -170,7 +176,7 @@ static int decode_tracker(const char *path, DecodeResult *result) {
   if(md_mixfreq == 0)
     md_mixfreq = OUTPUT_RATE;
 
-  result->format = AUDIO_S16SYS;
+  result->format = NEBU_AUDIO_S16;
   result->channels = OUTPUT_CHANNELS;
   result->rate = OUTPUT_RATE;
 
@@ -238,7 +244,11 @@ int main(int argc, char **argv) {
   memset(&result, 0, sizeof(result));
   result.prefix_hash = UINT64_C(14695981039346656037);
 
+#ifdef GLTRON_SDL3_AUDIO
+  if(!SDL_Init(0)) {
+#else
   if(SDL_Init(0) != 0) {
+#endif
     fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
     return 1;
   }

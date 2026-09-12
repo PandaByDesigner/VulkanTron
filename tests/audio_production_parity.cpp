@@ -2,8 +2,9 @@
 #include "audio/nebu_SourceCopy.h"
 #include "audio/nebu_SourceMusic.h"
 #include "audio/nebu_SourceSample.h"
+#include "audio/nebu_SourceEngine.h"
 
-#include <SDL.h>
+#include "audio/nebu_AudioSDL.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -45,6 +46,10 @@ struct MixerResult {
   uint64_t copy_overlap_hash;
   uint64_t one_shot_hash;
   uint64_t loop_boundary_hash;
+  uint64_t spatial_hash;
+  uint64_t engine_hash;
+  int spatial_cursor;
+  int engine_cursor;
   int copy_cursors_independent;
   int one_shot_reset;
   int loop_boundary;
@@ -375,6 +380,48 @@ bool verifyLoopAndEof(Sound::System *system, const char *path,
   return true;
 }
 
+bool verifySpatialMix(Sound::System *system, const char *path,
+                       MixerResult *result) {
+  Sound::SourceSample sample(system);
+  Sound::Source3D spatial(system, &sample);
+  Sound::SourceEngine engine(system, &sample);
+  Sint16 pcm[CALLBACK_BYTES / sizeof(Sint16)];
+  sample.Load(const_cast<char *>(path));
+  if(sample._buffer == NULL)
+    return false;
+  sample.SetLoop(255);
+  sample.Start();
+  Sound::Listener &listener = system->GetListener();
+  listener._location = Vector3(0, 0, 0);
+  listener._velocity = Vector3(3, 1, 0);
+  listener._direction = Vector3(1, 0, 0);
+  listener._up = Vector3(0, 0, 1);
+  result->spatial_hash = kFnvOffset;
+  result->engine_hash = kFnvOffset;
+  for(int block = 0; block < 160; ++block) {
+    spatial._location = Vector3(15, block % 2 ? 25 : -25, 0);
+    spatial._velocity = Vector3(block % 3 ? 7 : -4, 2, 0);
+    engine._location = listener._location;
+    engine._velocity = Vector3(5, 0, 0);
+    engine._speedShift = block % 2 ? 1.2f : 1.0f;
+    engine._pitchShift = block % 3 ? 1.15f : 0.85f;
+    memset(pcm, 0, sizeof(pcm));
+    if(!spatial.Mix((Uint8*)pcm, sizeof(pcm)))
+      return false;
+    result->spatial_hash = hashBytes(result->spatial_hash,
+                                     (Uint8*)pcm, sizeof(pcm));
+    memset(pcm, 0, sizeof(pcm));
+    if(!engine.Mix((Uint8*)pcm, sizeof(pcm)))
+      return false;
+    result->engine_hash = hashBytes(result->engine_hash,
+                                    (Uint8*)pcm, sizeof(pcm));
+  }
+  result->spatial_cursor = spatial._position;
+  result->engine_cursor = engine._position;
+  return spatial._position > 0 && spatial._position < sample._buffersize &&
+         engine._position > 0 && engine._position < sample._buffersize;
+}
+
 bool exerciseAudioWrappers(Sound::System *system) {
   SDL_AudioSpec desired;
   SDL_AudioSpec obtained;
@@ -382,11 +429,25 @@ bool exerciseAudioWrappers(Sound::System *system) {
   SDL_memset(&desired, 0, sizeof(desired));
   SDL_memset(&obtained, 0, sizeof(obtained));
   desired.freq = OUTPUT_RATE;
-  desired.format = AUDIO_S16SYS;
+  desired.format = NEBU_AUDIO_S16;
   desired.channels = OUTPUT_CHANNELS;
+#ifndef GLTRON_SDL3_AUDIO
   desired.samples = 64;
   desired.callback = system->GetCallback();
   desired.userdata = system;
+#endif
+
+#ifdef GLTRON_SDL3_AUDIO
+  SDL_AudioSpec invalid = desired;
+  invalid.freq = 48000;
+  if(system->OpenAudio(&invalid, &obtained) == 0) {
+    fprintf(stderr, "SDL3 accepted an incompatible mixer rate\n");
+    return false;
+  }
+  system->CloseAudio();
+  system->CloseAudio();
+  system->PauseAudio(0); /* failed opens must leave lifecycle operations safe */
+#endif
 
   if(system->OpenAudio(&desired, &obtained) != 0) {
     fprintf(stderr, "production System::OpenAudio failed: %s\n",
@@ -398,7 +459,14 @@ bool exerciseAudioWrappers(Sound::System *system) {
      all deterministic, manually driven Mix calls have completed. */
   system->PauseAudio(1);
 
-  if(obtained.freq != OUTPUT_RATE || obtained.format != AUDIO_S16SYS ||
+#ifdef GLTRON_SDL3_AUDIO
+  if(system->OpenAudio(&desired, &obtained) == 0) {
+    fprintf(stderr, "SDL3 opened a second stream over a live stream\n");
+    return false;
+  }
+#endif
+
+  if(obtained.freq != OUTPUT_RATE || obtained.format != NEBU_AUDIO_S16 ||
      obtained.channels != OUTPUT_CHANNELS) {
     fprintf(stderr, "production audio wrapper changed the requested format\n");
     return false;
@@ -427,11 +495,13 @@ int main(int argc, char **argv) {
   SDL_memset(&music, 0, sizeof(music));
   SDL_memset(&mixer, 0, sizeof(mixer));
   spec.freq = OUTPUT_RATE;
-  spec.format = AUDIO_S16SYS;
+  spec.format = NEBU_AUDIO_S16;
   spec.channels = OUTPUT_CHANNELS;
+#ifndef GLTRON_SDL3_AUDIO
   spec.samples = 1024;
+#endif
 
-  if(SDL_Init(SDL_INIT_AUDIO) != 0) {
+  if(!nebu_InitAudio()) {
     fprintf(stderr, "SDL audio initialization failed: %s\n", SDL_GetError());
     return 1;
   }
@@ -450,10 +520,16 @@ int main(int argc, char **argv) {
              verifySampleMix(&system, argv[1], &mixer) &&
              verifySourceCopies(&system, argv[2], &mixer) &&
              verifySampleBoundaries(&system, &mixer) &&
+             verifySpatialMix(&system, argv[2], &mixer) &&
              renderMusicPrefix(&system, argv[4], &music) &&
              verifyLoopAndEof(&system, argv[4], &music);
     system.PauseAudio(1);
     system.CloseAudio();
+#ifdef GLTRON_SDL3_AUDIO
+    if(passed)
+      passed = exerciseAudioWrappers(&system); /* a closed stream can reopen */
+    system.CloseAudio();
+#endif
   }
 
   Sound::QuitDecoder();
@@ -470,7 +546,9 @@ int main(int argc, char **argv) {
          "copy_first_fnv1a=%016llx copy_overlap_fnv1a=%016llx "
          "one_shot_fnv1a=%016llx loop_boundary_fnv1a=%016llx "
          "copy_independent=%d one_shot_reset=%d sample_loop_boundary=%d "
-         "loop_reset=%d eof_stop=%d wrappers=1\n",
+         "loop_reset=%d eof_stop=%d wrappers=1 "
+         "spatial_fnv1a=%016llx engine_mix_fnv1a=%016llx "
+         "spatial_cursor=%d engine_cursor=%d\n",
          crash.bytes, (unsigned long long)crash.hash,
          engine.bytes, (unsigned long long)engine.hash,
          recognizer.bytes, (unsigned long long)recognizer.hash,
@@ -485,6 +563,9 @@ int main(int argc, char **argv) {
          (unsigned long long)mixer.loop_boundary_hash,
          mixer.copy_cursors_independent, mixer.one_shot_reset,
          mixer.loop_boundary, music.saw_loop_reset,
-         music.stopped_at_eof);
+         music.stopped_at_eof,
+         (unsigned long long)mixer.spatial_hash,
+         (unsigned long long)mixer.engine_hash,
+         mixer.spatial_cursor, mixer.engine_cursor);
   return 0;
 }

@@ -4,6 +4,8 @@
 #include "Nebu_base.h"
 
 #include <math.h>
+#include <limits.h>
+#include <stdint.h>
 
 void getPositionFromIndex(float *x, float *y, int player) {
 	getPositionFromData(x, y, game->player[player].data);
@@ -37,6 +39,11 @@ void initGameStructures(void) { /* called only once */
     p->ai = (AI*) malloc(sizeof(AI));
     p->data = (Data*) malloc(sizeof(Data));
     p->data->trails = (segment2*) malloc(MAX_TRAIL * sizeof(segment2));
+    if(p->data->trails == NULL) {
+      fprintf(stderr, "[fatal] cannot allocate player trails\n");
+      exit(EXIT_FAILURE);
+    }
+    p->data->trailCapacity = MAX_TRAIL;
 		p->data->trailOffset = 0;
 		p->camera = (Camera*) malloc(sizeof(Camera));
   }
@@ -183,6 +190,23 @@ void newTrail(Data* data) {
 
 	getPositionFromData(&x, &y, data);
 
+  if(data->trailOffset >= data->trailCapacity - 1) {
+    int capacity;
+    segment2 *grown;
+    if(data->trailCapacity <= 0 || data->trailCapacity > INT_MAX / 2 ||
+       (size_t)data->trailCapacity > SIZE_MAX / 2 / sizeof(*grown)) {
+      fprintf(stderr, "[fatal] player trail storage limit reached\n");
+      exit(EXIT_FAILURE);
+    }
+    capacity = data->trailCapacity * 2;
+    grown = realloc(data->trails, (size_t)capacity * sizeof(*grown));
+    if(grown == NULL) {
+      fprintf(stderr, "[fatal] cannot grow player trails\n");
+      exit(EXIT_FAILURE);
+    }
+    data->trails = grown;
+    data->trailCapacity = capacity;
+  }
 	data->trailOffset++;
 	s = data->trails + data->trailOffset;
 

@@ -8,14 +8,14 @@ extern "C" {
 #include "audio/nebu_Source.h"
 #include "base/nebu_Vector3.h"
 
-#include "SDL.h"
+#include "audio/nebu_AudioSDL.h"
 
-#ifndef GLTRON_SDL2_AUDIO
+#if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
 #include "SDL_sound.h"
 #endif
 
 namespace Sound {
-  #ifdef GLTRON_SDL2_AUDIO
+  #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
   struct AudioInfo {
     Uint16 format;
     Uint8 channels;
@@ -50,6 +50,7 @@ namespace Sound {
 
     System(SDL_AudioSpec *spec);
     ~System();
+    enum { kMixChunkBytes = 4096 };
     typedef void(*Audio_Callback)(void *userdata, Uint8* data, int len);
     Audio_Callback GetCallback() { return c_callback; };
     int OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained);
@@ -68,7 +69,9 @@ namespace Sound {
 
   protected:
     AudioInfo _info;
-#ifdef GLTRON_SDL2_AUDIO
+#ifdef GLTRON_SDL3_AUDIO
+    SDL_AudioStream *_stream;
+#elif defined(GLTRON_SDL2_AUDIO)
     SDL_AudioDeviceID _device;
 #endif
     Listener _listener;

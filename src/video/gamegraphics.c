@@ -451,31 +451,29 @@ void drawCam(Player *p, PlayerVisual* pV) {
 
 	{
 		TrailMesh mesh;
-		mesh.pVertices = (vec3*) malloc(1000 * sizeof(vec3));
-		mesh.pNormals = (vec3*) malloc(1000 * sizeof(vec3));
-		mesh.pColors = (unsigned char*) malloc(1000 * 4 * sizeof(float));
-		mesh.pTexCoords = (vec2*) malloc(1000 * sizeof(vec2));
-		mesh.pIndices = (unsigned short*) malloc(1000 * 2);
+		int longestTrail = 0;
+		for(i = 0; i < game->players; i++)
+			if(game->player[i].data->trail_height > 0 &&
+			   game->player[i].data->trailOffset > longestTrail)
+				longestTrail = game->player[i].data->trailOffset;
 
-		for(i = 0; i < game->players; i++) {
-			if (game->player[i].data->trail_height > 0 ) {
-				int vOffset = 0;
-				int iOffset = 0;
-				mesh.iUsed = 0;
-				trailGeometry(game->player + i, gPlayerVisuals + i,
+		if(trailMeshAllocate(&mesh, longestTrail)) {
+			for(i = 0; i < game->players; i++) {
+				if (game->player[i].data->trail_height > 0 ) {
+					int vOffset = 0;
+					int iOffset = 0;
+					mesh.iUsed = 0;
+					trailGeometry(game->player + i, gPlayerVisuals + i,
+												&mesh, &vOffset, &iOffset);
+					bowGeometry(game->player + i, gPlayerVisuals + i,
 											&mesh, &vOffset, &iOffset);
-				bowGeometry(game->player + i, gPlayerVisuals + i,
-										&mesh, &vOffset, &iOffset);
-				trailStatesNormal(game->player + i, gScreen->textures[TEX_DECAL]);
-				trailRender(&mesh);
-				trailStatesRestore();
+					trailStatesNormal(game->player + i, gScreen->textures[TEX_DECAL]);
+					trailRender(&mesh);
+					trailStatesRestore();
+				}
 			}
+			trailMeshFree(&mesh);
 		}
-		free(mesh.pVertices);
-		free(mesh.pNormals);
-		free(mesh.pColors);
-		free(mesh.pTexCoords);
-		free(mesh.pIndices);
 	}
 
   glDisable(GL_POLYGON_OFFSET_FILL);
