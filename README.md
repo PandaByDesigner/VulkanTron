@@ -127,6 +127,11 @@ and verifies two save/load cycles. The stricter window fixture requires a
 desktop that permits requested window sizes. On the tested Hyprland session,
 X11 passed that fixture; the Wayland compositor overrode its requested sizes.
 Do not interpret that constrained fixture as a Wayland resize certification.
+To use the verified X11 path on a Wayland desktop with XWayland available:
+
+```sh
+SDL_VIDEO_DRIVER=x11 ctest --test-dir build/debug -L graphics --output-on-failure
+```
 
 Reference presets `sdl1-reference` and `sdl2-reference` need the respective SDL
 development packages. SDL1 audio also needs SDL_sound; SDL2/SDL3 use libmikmod
