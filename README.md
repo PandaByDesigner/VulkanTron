@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="packaging/icons/gltron-faithful.png" alt="GLTron Faithful Remaster lightcycle icon" width="180" height="180">
+</p>
+
 # GLTron Faithful Remaster
 
 A preservation-focused remaster of GLTron 0.70: the same lightcycles, rules,

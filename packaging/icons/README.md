@@ -1,8 +1,8 @@
 # Faithful Remaster launcher icon
 
 `gltron-faithful.png` is a new app-menu icon generated with the built-in image
-generation tool on 2026-09-12. It is used only for desktop identification; it
-does not replace any original or faithful in-game artwork.
+generation tool on 2026-09-12. It identifies the app in desktop launchers and
+the project README; it does not replace any original or faithful in-game artwork.
 
 The returned opaque RGB PNG is 1254 by 1254 pixels and is used unchanged.
 Desktop launchers scale it for display. SHA256:
