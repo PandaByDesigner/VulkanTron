@@ -1,11 +1,15 @@
-# 0.70.1-preview
+# 0.70.1
 
-This preview brings GLTron 0.70 onto SDL3 while retaining its classic OpenGL
+This release brings GLTron 0.70 onto SDL3 while retaining its classic OpenGL
 presentation and gameplay. The original artpack, models, effects, and
-**Revenge of Cats** music remain unchanged.
+**Revenge of Cats** music remain unchanged. A separate `faithful` artpack offers
+deterministic fourfold upscales of the original artwork and font atlases.
 
 ## Player-visible improvements
 
+- Choose `faithful` under **Video → Artpack** for interpolated original artwork,
+  or choose `default` for the original images. Font layout retains its classic
+  proportions. Upscaling smooths existing pixels without inventing new detail.
 - Resize without rebuilding the OpenGL context or resetting the match.
 - Use borderless fullscreen at the desktop mode and render at the actual HiDPI
   framebuffer size. Keep classic HUD/menu proportions at wide aspect ratios.
@@ -40,7 +44,8 @@ certified. Native resize fixture results depend on the compositor honoring
 requested window sizes. The binary TGZ uses system libraries rather than
 bundling a complete runtime.
 
-The optional sharper faithful artpack and final integration/package checks are
-still open. See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for current evidence.
-The `preview` suffix will remain until those gates are resolved. Vulkan renderer
-work and new art/music belong to the separate planned VulkanTron project.
+See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for release verification evidence
+and platform limits. The derived artwork's source, resampling method,
+and original credits are recorded in [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md).
+Vulkan renderer work and new art/music belong to the separate planned
+VulkanTron project.

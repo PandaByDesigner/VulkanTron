@@ -13,6 +13,7 @@
 #include <SDL.h>
 #endif
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,115 @@
 extern lua_State *L;
 static char capture_path[4096];
 static int captures;
+
+static void pngDimensions(const char *path, int *width, int *height) {
+  png_image image;
+  memset(&image, 0, sizeof(image));
+  image.version = PNG_IMAGE_VERSION;
+  assert(png_image_begin_read_from_file(&image, path));
+  assert(image.width > 0 && image.width <= INT_MAX &&
+         image.height > 0 && image.height <= INT_MAX);
+  *width = (int)image.width;
+  *height = (int)image.height;
+  png_image_free(&image);
+}
+
+static void verifyLoadedTexture(const char *artpack, const char *filename,
+                                GLuint texture_id) {
+  char expected_path[4096];
+  char *path = getArtPath(artpack, filename);
+  GLint bound, width, height, maximum;
+  int source_width, source_height;
+  struct stat status;
+  assert(snprintf(expected_path, sizeof(expected_path), "%s/%s/%s",
+                  getDirectory(PATH_ART), artpack, filename) < (int)sizeof(expected_path));
+  /* A missing or malformed faithful asset must fail this gate even though
+   * production can safely fall back to the corresponding original. */
+  assert(path != NULL && strcmp(path, expected_path) == 0);
+  assert(stat(path, &status) == 0 && S_ISREG(status.st_mode));
+  pngDimensions(path, &source_width, &source_height);
+  if(strcmp(artpack, "faithful") == 0) {
+    char *original = getArtPath("default", filename);
+    int original_width, original_height;
+    assert(original != NULL);
+    pngDimensions(original, &original_width, &original_height);
+    assert(original_width <= INT_MAX / 4 && original_height <= INT_MAX / 4);
+    assert(source_width == original_width * 4 && source_height == original_height * 4);
+    free(original);
+  }
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
+  assert(maximum > 0);
+  /* The renderer drops oversized mip levels on a smaller GPU. */
+  while(source_width > maximum || source_height > maximum) {
+    source_width = source_width > 1 ? source_width / 2 : 1;
+    source_height = source_height > 1 ? source_height / 2 : 1;
+  }
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+  assert(glIsTexture(texture_id));
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width);
+  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &height);
+  assert(width == source_width && height == source_height);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)bound);
+  assert(glGetError() == GL_NO_ERROR);
+  free(path);
+}
+
+static void verifyLoadedFont(const char *artpack, const char *name, FontTex *font) {
+  int i;
+  assert(font != NULL && font->texID != NULL && strcmp(font->fontname, name) == 0);
+  /* Upscaling atlas pixels must not change the classic 8x8 glyph layout,
+   * character range, or the metrics used by the menu/HUD renderer. */
+  assert(font->nTextures == 2 && font->texwidth == 256 && font->width == 32 &&
+         font->lower == 32 && font->upper == 126);
+  for(i = 0; i < font->nTextures; i++) {
+    char filename[128];
+    assert(snprintf(filename, sizeof(filename), "%s.%d.png", name, i) < (int)sizeof(filename));
+    verifyLoadedTexture(artpack, filename, font->texID[i]);
+  }
+}
+
+static void selectAndVerifyArtpack(const char *artpack) {
+  char *loaded_artpack = NULL;
+  char expected_marker[4096];
+  char *marker;
+  int i, j, count = 0;
+  SDL_GLContext context = SDL_GL_GetCurrentContext();
+  assert(context != NULL);
+  lua_getglobal(L, "settings");
+  lua_pushstring(L, "current_artpack");
+  lua_pushstring(L, artpack);
+  lua_settable(L, -3);
+  lua_pop(L, 1);
+  /* Exercise the same enumeration selection and registered reload callback
+   * used by the Video menu, rather than merely checking a setting string. */
+  assert(scripting_RunChecked("setupArtpacks(); c_reloadArtpack()") == 0);
+  scripting_GetGlobal("settings", "current_artpack", NULL);
+  assert(scripting_GetStringResult(&loaded_artpack) == 0);
+  assert(strcmp(loaded_artpack, artpack) == 0);
+  free(loaded_artpack);
+  marker = getArtPath(artpack, "artpack.lua");
+  assert(snprintf(expected_marker, sizeof(expected_marker), "%s/%s/artpack.lua",
+                  getDirectory(PATH_ART), artpack) < (int)sizeof(expected_marker));
+  assert(marker != NULL && strcmp(marker, expected_marker) == 0);
+  free(marker);
+  for(i = 0; i < n_textures; i++) {
+    for(j = 0; j < textures[i].count; j++) {
+      char filename[128];
+      int length = textures[i].count == 1 ?
+        snprintf(filename, sizeof(filename), "%s%s", textures[i].name, TEX_SUFFIX) :
+        snprintf(filename, sizeof(filename), "%s%d%s", textures[i].name, j, TEX_SUFFIX);
+      assert(length >= 0 && length < (int)sizeof(filename));
+      verifyLoadedTexture(artpack, filename, gScreen->textures[textures[i].id + j]);
+      count++;
+    }
+  }
+  verifyLoadedFont(artpack, "babbage", guiFtx);
+  verifyLoadedFont(artpack, "xenotron", gameFtx);
+  assert(SDL_GL_GetCurrentContext() == context);
+  printf("PASS: selected %s assets: %d GPU textures, four font atlases, exact paths/dimensions and classic glyph metrics\n",
+         artpack, count);
+}
 
 static void capture(void) {
   if(VideoCaptureScreenshot(capture_path, 1) != 0) {
@@ -68,7 +178,6 @@ int main(int argc, char **argv) {
   const char *output = getenv("GLTRON_SCREENSHOT_DIR");
   const char *options[] = { argv[0], "-i", "-4" };
   const char *artpack = argc > 1 ? argv[1] : "default";
-  char *loaded_artpack = NULL;
   int i;
   SDL_Event quit_event;
   SDL_GLContext initial_context;
@@ -78,18 +187,11 @@ int main(int argc, char **argv) {
     return 2;
   }
   initSubsystems(3, options);
-  lua_getglobal(L, "settings");
-  lua_pushstring(L, "current_artpack");
-  lua_pushstring(L, artpack);
-  lua_settable(L, -3);
-  lua_pop(L, 1);
-  reloadArt();
-  scripting_GetGlobal("settings", "current_artpack", NULL);
-  assert(scripting_GetStringResult(&loaded_artpack) == 0);
-  assert(strcmp(loaded_artpack, artpack) == 0);
-  free(loaded_artpack);
   initial_context = SDL_GL_GetCurrentContext();
   assert(initial_context != NULL);
+  selectAndVerifyArtpack("default");
+  if(strcmp(artpack, "default") != 0)
+    selectAndVerifyArtpack(artpack);
   printf("NATIVE SDL %d driver %s OpenGL %s renderer %s\n", SDL_MAJOR_VERSION,
          SDL_GetCurrentVideoDriver(),
          (const char *)glGetString(GL_VERSION), (const char *)glGetString(GL_RENDERER));
@@ -157,6 +259,16 @@ int main(int argc, char **argv) {
   assert(!SystemIsFullscreen());
   assert(SDL_GL_GetCurrentContext() == initial_context);
   captureNamed(output, "restored");
+  if(strcmp(artpack, "default") != 0) {
+    Data original_player;
+    memcpy(&original_player, game->player[0].data, sizeof(original_player));
+    selectAndVerifyArtpack("default");
+    captureNamed(output, "artpack-default-restored");
+    selectAndVerifyArtpack(artpack);
+    captureNamed(output, "artpack-selected-restored");
+    assert(SDL_GL_GetCurrentContext() == initial_context);
+    assert(memcmp(&original_player, game->player[0].data, sizeof(original_player)) == 0);
+  }
   /* Exercise the real serializers twice; both writes stay in the test dir. */
   for(i = 0; i < 2; i++) {
     char *path = getPossiblePath(PATH_PREFERENCES, RC_NAME);
@@ -169,7 +281,7 @@ int main(int argc, char **argv) {
     assert(getSettingi("smoke_roundtrip") == i + 19);
     free(path);
   }
-  assert(captures == 14);
+  assert(captures == (strcmp(artpack, "default") == 0 ? 14 : 16));
   printf("PASS: native menu/play/pause/multiplayer/cameras/fullscreen, %d complete-frame captures, two saved settings roundtrips\n", captures);
   shutdownDisplay(gScreen);
   memset(&quit_event, 0, sizeof(quit_event));

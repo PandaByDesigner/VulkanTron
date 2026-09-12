@@ -5,7 +5,7 @@ turning it into a different game. The stabilized original is protected by the
 `stabilized-classic` tag; remaster work lives on the
 `codex/faithful-remaster` branch.
 
-## Current SDL3 preview
+## Current SDL3 release
 
 The active CMake build now defaults to SDL3 with OpenGL and native audio. SDL1
 and SDL2 are retained comparison builds. The sections below record successive
@@ -21,6 +21,12 @@ resources safely and optional texture failures fall back to the original pack.
 The native stream adapter preserves the classic 22,050 Hz/S16/stereo mixer in
 fixed blocks while SDL3 converts to the output device's format.
 
+Version 0.70.1 also includes a selectable `faithful` artpack with deterministic
+4× upscales of the original textures and font atlases. The `default` pack is
+unchanged. Font spacing and menu composition retain their original proportions;
+the interpolation method and source hashes are documented in
+[asset provenance](ASSET_PROVENANCE.md).
+
 The agreed project sequence is to finish this faithful release, then fork its
 working gameplay foundation into **VulkanTron**. A full shader-renderer rewrite,
 new music, and new visual direction belong to that later project. SDL3 platform
@@ -28,7 +34,7 @@ modernization and an OpenGL faithful remaster are compatible choices.
 
 ## Faithfulness contract
 
-Until the remaster is complete, these remain the classic GLTron 0.70 behavior:
+These remain the classic GLTron 0.70 behavior in the faithful remaster:
 
 - four-direction, 90-degree lightcycle movement;
 - movement timing, speed oscillation, booster and wall-acceleration rules;
@@ -38,8 +44,8 @@ Until the remaster is complete, these remain the classic GLTron 0.70 behavior:
 - original models, artpack, sound effects, and `Revenge of Cats` music; and
 - single, stacked two-player, and four-way local viewport topology.
 
-The original artpack will remain selectable when higher-resolution faithful
-art is added. New vehicles, arenas, rules, game modes, music, and stylistic art
+The original artpack remains selectable alongside the upscaled faithful
+art. New vehicles, arenas, rules, game modes, music, and stylistic art
 variants belong to the later modding phase, not this branch's remaster work.
 
 ## Foundation milestone
@@ -482,10 +488,10 @@ being folded into this presentation milestone.
 4. Complete: SDL2-native device, effect, and tracker paths reproduce the
    original assets through raw-decoder, production-mixer, lifecycle, stress,
    sanitizer, and link-surface gates.
-5. Add resize, borderless desktop fullscreen, HiDPI drawable sizing, and
-   screenshot correctness.
-6. Create a separate high-resolution faithful artpack and fonts while keeping
-   the original artpack available for direct comparison.
+5. Complete: resize, borderless desktop fullscreen, HiDPI drawable sizing, and
+   screenshot correctness are verified in the SDL3 release.
+6. Complete: the separate 4× faithful artpack and font atlases are selectable
+   alongside the original pack, with native rendering and reload checks.
 7. Originally proposed: modernize the renderer behind screenshot and
    gameplay-state comparisons. The agreed two-project direction now places that
    rewrite in VulkanTron after the faithful release.

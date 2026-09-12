@@ -9,7 +9,7 @@ include(GNUInstallDirs)
 include(CTest)
 include(CheckSymbolExists)
 
-set(GLTRON_RELEASE_SUFFIX "preview" CACHE STRING "Release label; empty only for a verified final release")
+set(GLTRON_RELEASE_SUFFIX "" CACHE STRING "Optional label for prerelease builds")
 if(GLTRON_RELEASE_SUFFIX AND NOT GLTRON_RELEASE_SUFFIX MATCHES "^[A-Za-z0-9][A-Za-z0-9.-]*$")
   message(FATAL_ERROR "GLTRON_RELEASE_SUFFIX may contain letters, digits, dots and hyphens")
 endif()

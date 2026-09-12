@@ -1,0 +1,2 @@
+-- Faithful 4x interpolation of art/default; see manifest.txt.
+-- Inherit the original art settings and logical font metadata.

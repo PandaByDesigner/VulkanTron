@@ -3,8 +3,8 @@
 The agreed public project is **GLTron Faithful Remaster**, using SDL3 and
 OpenGL. A later **VulkanTron** project will carry the Vulkan renderer and its
 own artwork/music. The faithful release preserves the classic game and original
-assets as a selectable reference. This is the completion checklist, not a claim
-that the items below are already verified.
+assets as a selectable reference. The requirements below are matched to the
+local release verification evidence in the table.
 
 ## Required for the faithful release
 
@@ -34,9 +34,9 @@ that the items below are already verified.
 
 ## Implementation and evidence
 
-Implementation started from `79fd7f4`. The SDL3/OpenGL code preview now includes
-all platform and reliability work below. The version remains **0.70.1-preview**
-because the optional sharper faithful artpack is unresolved.
+Implementation started from `79fd7f4`. The **0.70.1** SDL3/OpenGL release includes
+the platform and reliability work below plus the separately selectable faithful
+artpack. The user approved deterministic upscaling of the original artwork.
 
 | Gate | Evidence / status |
 | --- | --- |
@@ -45,21 +45,25 @@ because the optional sharper faithful artpack is unresolved.
 | SDL input/audio | SDL1/2/3 input, decoder, production mixer and source-list stress comparisons pass; native SDL3 retains the fixed classic mixer blocks and sample values. |
 | Window/screenshot fixture | SDL3 X11 passes ASan/UBSan; SDL2 X11 passes. Includes resize/context/texture retention, external fullscreen, restoration, exact PNG/BMP RGB pixels, odd widths, competing BMP writers and canceled screenshot requests. |
 | Real game rendering | Both Wayland at 2x scale and staged X11 pass the production game ASan/UBSan smoke: 14 captures covering menu, play, pause, all cameras, multiplayer, a 1,100-turn trail, fullscreen and restore. Two actual settings save/load cycles pass. |
-| Native CTest workflow | Both registered graphical tests pass twice consecutively on X11 with ASan/UBSan. Each game run resets only its private test settings and captures; the home preferences checksum remains unchanged. |
+| Final artwork integration | All three graphical CTests pass on X11 with ASan/UBSan: window fixture, original pack (14 captures), and faithful pack (16 captures). The faithful pack also passes the 16-capture Wayland run at 2x density. All 16 game GPU textures and four font atlases resolve from the selected pack at the expected dimensions; switching default/faithful preserves the GL context and player state. All 14 headless sanitizer tests pass again after integration. |
 | Resource fidelity | All 22 original PNGs and complete mip chains match the old loaders; 95 ASCII glyph draw coordinates match. Corrupt files and repeated font reloads pass cleanup checks. A 1024-pixel test atlas preserves the classic logical font metrics. |
 | Hardware audio | Exact application-only seven-second PipeWire capture is non-silent for music, effects and combined playback; production mixer is 22050 Hz/S16/stereo; hardware output and clean shutdown verified. |
 | Builds/install | SDL1/SDL2/SDL3, each with audio on/off, build and pass their CTests. Full-audio configurations have 14 headless tests; no-audio configurations have 12. Desktop integration, binary TGZ extraction and SHA256 checks pass. |
-| Relocation/launch | Staged assets are selected relative to the executable, with no explicit data override. The actual installed executable runs from `/tmp`, loads the original song, accepts a normal close sent only to its own window, and exits zero. |
-| Source packaging | Fresh source extraction builds without Git metadata; Lua scripts and artpack markers are byte-checked. Extracted-source no-audio tests pass. Source ignore rules use literal-dot character classes to survive CPack serialization. |
+| Relocation/launch | The extracted 0.70.1 executable runs from `/tmp`, selects its packaged faithful artpack and original song with no data override, accepts a normal close sent only to its own window, and exits zero. Original-pack staged launch was also verified. |
+| Source packaging | Fresh 0.70.1 source extraction builds SDL3 with audio without Git metadata and passes all 14 CTests; its faithful artpack regenerates exactly. Both archives contain byte-identical original and faithful assets, including Lua markers and the provenance manifest. Source ignore rules use literal-dot character classes to survive CPack serialization. |
 | Documentation/credits | README, release notes, original notices, Lua notice and asset provenance included. Original art, data and music match `upstream-0.70` byte-for-byte. |
 | User preferences | All verification uses private directories. The existing home `.gltronrc` checksum remains unchanged. |
-| Sharper artpack | **Open.** The generated logo was rejected for changing the original. Awaiting the user's choice of deterministic upscaling or deferral; no generated replacement assets are shipped. |
+| Sharper artpack | Complete: 22 deterministic 4x PNG upscales, including cell-isolated font atlases, reproduce exactly with the recorded toolchain. Original images, metadata and music remain unchanged. Native menu, play, pause, camera and multiplayer captures were visually reviewed against the original presentation; no missing textures, wrong glyphs, clipping or layout drift were found. See ASSET_PROVENANCE.md and art/faithful/manifest.txt for the method and hashes. |
 
 ## Limits and final release gate
 
+The required local release gates are complete for version **0.70.1**. Source
+and Linux binary TGZ packages include SHA256 files. The maintained default
+release preset clears the old preview suffix when upgrading an existing build.
+
 The verified machine is Linux x86-64 with SDL3 3.4.16, libmikmod 3.3.13,
 NVIDIA GTX 1660 and OpenGL 4.6 compatibility support. Linux is the tested platform
-for this preview; other operating systems have not been verified. A tiling
+for this release; other operating systems have not been verified. A tiling
 compositor can override requested window sizes; the game renders at the actual drawable dimensions and keeps its context
 when the requested size is declined. The strict window-size fixture passes on
 X11; Wayland's compositor-controlled sizing prevents that exact-size assertion,
@@ -72,10 +76,10 @@ libraries and graphics drivers. A clean build from source is the portable
 reproduction path; byte-identical binaries across different toolchains are not
 claimed.
 
-Resolve the sharper-artwork choice, verify any accepted pack in the same native
-scenes, and regenerate the final versioned artifacts before removing `preview`.
-GitHub publication and the VulkanTron fork are separate actions; this work has
-not published either repository.
+The faithful artpack uses interpolation of the original samples, as approved;
+it does not reconstruct missing source detail. GitHub publication and the
+VulkanTron fork are separate actions; this work has not published either
+repository.
 
 The OpenGL work here preserves presentation and robust resource handling. A
 full shader-renderer rewrite is reserved for VulkanTron under the agreed

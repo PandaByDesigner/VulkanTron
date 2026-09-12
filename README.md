@@ -4,8 +4,8 @@ A preservation-focused remaster of GLTron 0.70: the same lightcycles, rules,
 cameras, local multiplayer, original artwork, and **Revenge of Cats** soundtrack,
 with a modern SDL3 platform layer and the classic OpenGL renderer.
 
-This checkout builds **0.70.1-preview**. The remaining release gates and current
-verification limits are tracked in [the release checklist](docs/RELEASE_CHECKLIST.md).
+This checkout builds **0.70.1**. Release evidence and verification limits are
+recorded in [the release checklist](docs/RELEASE_CHECKLIST.md).
 The later **VulkanTron** project is intended for a new renderer and creative
 changes; those changes are outside this faithful remaster.
 
@@ -21,11 +21,15 @@ changes; those changes are outside this faithful remaster.
   repeat-safe settings saves.
 - Checked texture/font loading and fallback to original textures when an
   optional replacement cannot be loaded.
+- A selectable `faithful` artpack with 4× upscales of the original textures and
+  font atlases, retaining the original designs and font layout.
 - CMake builds, relocatable installation assets, and source/binary TGZ packages.
 
-The original `default` artpack is included. Work on the optional sharper faithful
-artpack is still pending; the preview does not advertise generated replacement
-art as faithful. No game rules, music, models, or stylistic effects are replaced.
+Choose **Video → Artpack → faithful** for the upscaled artwork, or `default` for
+the original images. The upscales interpolate existing pixels without inventing
+new detail. Both packs keep the same game rules, music, models, and effects.
+Their sources and exact regeneration method are recorded in
+[asset provenance](docs/ASSET_PROVENANCE.md).
 
 ## Build and play
 

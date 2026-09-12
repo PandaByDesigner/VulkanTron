@@ -1,0 +1,2 @@
+# Optional asset regeneration only; not required to build or play GLTron.
+Pillow==12.3.0

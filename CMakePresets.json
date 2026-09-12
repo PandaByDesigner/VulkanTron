@@ -7,7 +7,7 @@
       "displayName": "Faithful release (SDL3 + OpenGL)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
-      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "GLTRON_SDL_BACKEND": "SDL3", "BUILD_TESTING": "ON"}
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "GLTRON_SDL_BACKEND": "SDL3", "GLTRON_RELEASE_SUFFIX": "", "BUILD_TESTING": "ON"}
     },
     {
       "name": "debug",
