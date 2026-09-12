@@ -34,7 +34,7 @@ local release verification evidence in the table.
 
 ## Implementation and evidence
 
-Implementation started from `79fd7f4`. The **0.70.1** SDL3/OpenGL release includes
+Implementation started from `8ded094`. The **0.70.1** SDL3/OpenGL release includes
 the platform and reliability work below plus the separately selectable faithful
 artpack. The user approved deterministic upscaling of the original artwork.
 
