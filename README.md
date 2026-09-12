@@ -1,128 +1,119 @@
-<p align="center">
-  <img src="packaging/icons/gltron-faithful.png" alt="GLTron Faithful Remaster lightcycle icon" width="180" height="180">
-</p>
+# VulkanTron
 
-# GLTron Faithful Remaster
+**An early direct-Vulkan port of GLTron, built to learn renderer development
+while preserving the original game.** This checkout contains the `0.1.0-dev`
+Vulkan prototype and the GLTron Faithful Remaster 0.70.1 OpenGL reference.
 
-A preservation-focused remaster of GLTron 0.70: the same lightcycles, rules,
-cameras, local multiplayer, original artwork, and **Revenge of Cats** soundtrack,
-with a modern SDL3 platform layer and the classic OpenGL renderer.
+VulkanTron uses **Vulkan 1.3 directly**, with SDL3 providing the window, events,
+input, and Vulkan surface. It does not use SDL_GPU. The first target is Linux;
+other platforms and a complete faithful renderer port remain future work.
 
-This checkout builds **0.70.1**. Release evidence and verification limits are
-recorded in [the release checklist](docs/RELEASE_CHECKLIST.md).
-The later **VulkanTron** project is intended for a new renderer and creative
-changes; those changes are outside this faithful remaster.
+The current slice runs a human player against three original AIs, or four AIs
+in demonstration mode. It reuses production classic physics, collision and
+event handling, boost rules, random starts, and camera calculations. The scene
+loads the original `data/lightcycle-high.obj` and its material file and copies
+production trail segments. Floor, walls, grid lines, and trails have simplified
+geometry and flat colors; opaque trail colors and CPU flat diffuse shading
+approximate the classic appearance. This is a playable renderer foundation,
+not completed visual parity.
 
-## What has changed
+Menus, textures and artpack selection, fog, full lighting and effects, audio,
+split-screen presentation, configurable bindings, and saved preferences are
+deferred. The complete OpenGL reference remains available separately in this
+checkout. The [development plan](docs/VULKANTRON_PLAN.md) records the accepted
+scope and the checks needed before claiming parity.
+The [initial verification report](docs/VULKANTRON_VERIFICATION.md) records the
+headless and native GPU results, including their limits.
 
-- SDL3 window, input, and audio support. SDL1 and SDL2 remain buildable references.
-- Resizable windows, borderless desktop fullscreen, and rendering at the real
-  framebuffer resolution on HiDPI displays.
-- Aspect-correct widescreen play with the classic single, stacked two-player,
-  and four-way layouts. Menus and HUD keep their original proportions.
-- Complete-frame PNG and BMP screenshots, including odd image widths.
-- Stable saved key identifiers, bounded joystick hot-plug handling, and atomic,
-  repeat-safe settings saves.
-- Checked texture/font loading and fallback to original textures when an
-  optional replacement cannot be loaded.
-- A selectable `faithful` artpack with 4× upscales of the original textures and
-  font atlases, retaining the original designs and font layout.
-- CMake builds, relocatable installation assets, and source/binary TGZ packages.
+## Build and run
 
-Choose **Video → Artpack → faithful** for the upscaled artwork, or `default` for
-the original images. The upscales interpolate existing pixels without inventing
-new detail. Both packs keep the same game rules, music, models, and effects.
-Their sources and exact regeneration method are recorded in
-[asset provenance](docs/ASSET_PROVENANCE.md).
+You need a C99/C++20 compiler, CMake 3.21 or newer, Ninja, pkg-config, SDL3 3.2 or
+newer, Vulkan development headers and loader supporting at least Vulkan 1.3,
+`glslc`, and `spirv-val`. The selected GPU and driver must support Vulkan 1.3,
+dynamic rendering, and synchronization2. Install the Khronos validation layer
+to use `--validation`; requesting unavailable validation fails explicitly.
 
-## Build and play
+The shared build retains the remaster's dependencies: OpenGL development files,
+libpng, zlib, and libmikmod for its default audio-enabled configuration. Lua
+4.0.1 is bundled. On Arch Linux, `shaderc` provides `glslc`, `spirv-tools`
+provides `spirv-val`, and `vulkan-validation-layers` provides validation.
 
-The currently verified target is **Linux x86-64**. You need CMake 3.21 or newer,
-Ninja, a C/C++ compiler, pkg-config, SDL3 3.2 or newer, OpenGL development files,
-libpng, zlib, and libmikmod. Lua 4.0.1 is bundled. On Arch Linux these dependencies
-are available in `base-devel cmake ninja pkgconf sdl3 libglvnd libpng zlib libmikmod`.
+From the project root:
 
 ```sh
-git clone https://github.com/PandaByDesigner/gltron-faithful-remaster.git
-cd gltron-faithful-remaster
+./run-vulkantron.sh --validation
+```
+
+The helper configures the `release` preset, builds the `vulkantron` target, and
+runs it. After building, the executable is `./build/release/bin/vulkantron`.
+It honors `VULKAN_SDK` and can use the optional signed headers installed locally
+under `~/.local/opt/vulkan-headers/1.4.357.0` on the development machine.
+No GLTron preferences are read or written by the Vulkan prototype.
+
+```sh
+./build/release/bin/vulkantron --demo --overview --validation
+./build/release/bin/vulkantron --help
+./build/release/bin/vulkantron --version
+```
+
+Starting defaults match classic configuration values: a 720-unit arena, speed
+8.5, boost enabled, and level-2 AI. Player one is human unless `--demo` is
+supplied. Fast finish is disabled so an AI demonstration advances at normal
+speed. Resetting uses the same seed, `12313` by default.
+
+| Key | Action |
+| --- | --- |
+| Left / Right or A / D | Turn relative to your current heading |
+| Either Shift key | Hold to boost |
+| Space | Pause or resume |
+| R | Restart the round with the selected seed |
+| F10 | Cycle the original camera modes |
+| Tab | Toggle arena overview |
+| F11 | Toggle desktop fullscreen |
+| F12 | Save a new PNG in the current directory |
+| Escape | Quit |
+
+Losing window focus pauses interactive play and releases boost. The prototype
+starts with a 1280×720 resizable window and uses its actual drawable size.
+
+For a bounded capture, choose a path that does not already exist:
+
+```sh
+./build/release/bin/vulkantron --demo --validation --fixed-step \
+  --frames 120 --seed 12313 --capture /tmp/vulkantron-120.png
+```
+
+`--frames N` exits after N rendered frames. `--fixed-step` requests 20 ms of
+simulation per rendered frame and requires `--frames`. An out-of-date or
+temporarily unavailable drawable retries the same simulation state. `--capture NEW.png`
+also requires `--frames` and saves the final rendered frame. Pause and restart
+are disabled in bounded runs. A fixed seed and stepping schedule support state
+comparisons; they do not by themselves certify identical pixels or presentation
+timing across drivers.
+
+Other options are `--width N`, `--height N`, `--assets DIR`, and `--shaders DIR`.
+The asset root contains `data`, `art`, `scripts`, and `music`; the shader
+directory contains compiled `scene.vert.spv` and `scene.frag.spv`. Development
+builds discover these locations automatically. The inherited assets remain in
+the repository even where the prototype does not render them.
+
+## Tests and the OpenGL reference
+
+Build all targets before running the full test suite:
+
+```sh
 cmake --preset release
 cmake --build --preset release
 ctest --preset release
-./build/release/bin/gltron
 ```
 
-Use the arrow keys and Enter to navigate menus. Start a game from the Game menu;
-configure players and bindings there. Existing `.gltronrc` bindings keep their
-original numbers.
-
-| In-game key | Action |
-| --- | --- |
-| Space | Pause; press a gameplay key to resume |
-| Escape | Return through the game/menu screens |
-| F1 / F2 / F3 / F4 | Single / stacked / four-way / automatic view |
-| F5 | Save settings |
-| F10 | Cycle the four camera modes |
-| F11 / F12 | Save a BMP / PNG screenshot |
-
-Window/fullscreen and resolution choices are in **Video → Screen Options**.
-Window size requests are subject to the desktop's window management policy;
-a tiling compositor may choose a different size. Fullscreen uses the desktop
-display mode. The original 4:3 menu composition stays centered on wide displays.
-
-```sh
-./build/release/bin/gltron --help
-./build/release/bin/gltron --version
-```
-
-Preferences and screenshots default to your home directory. Testing or running
-another copy can use separate directories:
-
-```sh
-mkdir -p /tmp/gltron-session/config /tmp/gltron-session/screenshots
-GLTRON_CONFIG_DIR=/tmp/gltron-session/config \
-GLTRON_SCREENSHOT_DIR=/tmp/gltron-session/screenshots \
-./build/release/bin/gltron
-```
-
-`GLTRON_DATA_DIR` can select the root containing `art`, `data`, `music`, and
-`scripts`. Normally the executable discovers installed assets relative to its
-own location, then falls back to its source tree for development builds. It can
-be launched from an unrelated working directory. An invalid explicit asset
-override fails with a diagnostic.
-
-## Install and package
-
-To add **GLTron Faithful Remaster** to your Linux app menu with its own icon,
-build the release first, then run:
-
-```sh
-python3 tools/install_user_launcher.py
-```
-
-The installer needs `desktop-file-utils` and installs a separate copy under
-`~/.local/opt/gltron-faithful/<version>`, with a `gltron-faithful` command and app
-entry. It leaves the original GLTron installation available. On first launch,
-it copies existing `~/.gltronrc` controls into `~/.config/gltron-faithful` and
-selects the faithful artpack in that copy. Later preferences remain independent;
-screenshots go to `~/.local/share/gltron-faithful/screenshots`. The launcher
-honors `GLTRON_CONFIG_DIR` and `GLTRON_SCREENSHOT_DIR` overrides and the XDG
-configuration/data locations. Python is needed only to install the shortcut.
-
-The installed copy includes the assets, copyright notices, and build
-information. `cmake --install build/release --prefix <prefix>` remains available
-for a conventional installation into a prefix you manage.
-
-```sh
-cmake --build build/release --target package
-cmake --build build/release --target package_source
-```
-
-Archives and SHA256 files appear in `build/release`. The binary archive needs
-the system runtime libraries and a working OpenGL driver; it is not a bundled
-AppImage or a guarantee of compatibility with older Linux distributions.
-Extract the entire archive and run its `bin/gltron`.
-
-## Development and verification
+The suite retains the remaster's headless regressions and adds bridge and scene
+tests plus `vulkantron --self-test`. The bridge test exercises production input events,
+boost, deterministic resets and AI, camera independence, trail growth beyond
+1,000 turns, and cleanup. The scene self-test checks finite geometry and camera
+matrices at multiple aspect ratios and verifies that scene construction leaves
+gameplay state unchanged. These tests do not initialize a Vulkan device or
+certify native rendering.
 
 ```sh
 cmake --preset asan
@@ -130,49 +121,41 @@ cmake --build --preset asan
 ctest --preset asan
 ```
 
-The sanitizer preset checks memory access and undefined behavior. Leak detection
-is disabled in this preset because traced runners can prevent it from working.
-The default CTest suite uses production gameplay, camera, layout, input,
-settings, audio, and resource-loading code. It does not open a game window.
+The sanitizer preset enables AddressSanitizer and UndefinedBehaviorSanitizer.
+It disables leak detection because traced runners can prevent LeakSanitizer
+from operating. Native GPU validation and presentation checks require a real
+graphical session; their results must be recorded separately from headless tests.
 
-Native graphical gates explicitly opt in and require a real OpenGL session:
-
-```sh
-cmake --preset debug -DGLTRON_ENABLE_GRAPHICS_TESTS=ON
-cmake --build --preset debug
-ctest --test-dir build/debug -L graphics --output-on-failure
-```
-
-The native game gate uses private settings and captures under the build
-directory, exercises menu/play/pause, all cameras, multiplayer and fullscreen,
-and verifies two save/load cycles. The stricter window fixture requires a
-desktop that permits requested window sizes. On the tested Hyprland session,
-X11 passed that fixture; the Wayland compositor overrode its requested sizes.
-Do not interpret that constrained fixture as a Wayland resize certification.
-To use the verified X11 path on a Wayland desktop with XWayland available:
+To play the retained faithful remaster after a full build:
 
 ```sh
-SDL_VIDEO_DRIVER=x11 ctest --test-dir build/debug -L graphics --output-on-failure
+./build/release/bin/gltron
 ```
 
-Reference presets `sdl1-reference` and `sdl2-reference` need the respective SDL
-development packages. SDL1 audio also needs SDL_sound; SDL2/SDL3 use libmikmod
-directly for the shipped Impulse Tracker song. `no-audio` builds without decoders.
-Cross-backend scripts under `tests/` require all relevant reference dependencies.
-The retained Autotools build is a historical reference; use CMake for SDL3.
+Its original menus, artpacks, music, multiplayer layouts, controls, and saved
+settings are described in the [archived faithful README](docs/FAITHFUL_REFERENCE_README.md).
+That executable uses OpenGL and can read/write the original GLTron preferences;
+the archived instructions explain how to isolate its settings for comparisons.
+To configure only that reference without the Vulkan development dependencies,
+use `cmake --preset release -DVULKANTRON_BUILD_DIRECT_RENDERER=OFF`; set the
+option back to `ON` when returning to Vulkan work.
 
-[Faithful Remaster](docs/FAITHFUL_REMASTER.md) records the preservation contract
-and earlier milestones. [Stabilization](docs/STABILIZATION.md) and
-[baseline notes](docs/BASELINE.md) describe the original checkpoint.
+The first development machine has a GeForce GTX 1660 whose driver reports
+Vulkan 1.4.341. The prototype deliberately targets Vulkan 1.3. Device capability
+is not a native test result or a guarantee for other hardware. The inherited
+[release checklist](docs/RELEASE_CHECKLIST.md) records the OpenGL remaster's
+verification, not completion of this Vulkan port.
 
 ## Credits and license
 
-GLTron was created by Andreas Umbach and its original contributors. The original
-README and in-game credits remain in this repository. **Revenge of Cats** is
-copyright Peter Hajba (Skaven). Original artwork, models, fonts, and audio retain
-their original authorship; this remaster does not claim them as new work.
+GLTron was created by Andreas Umbach and its original contributors. Original
+artwork, models, fonts, and audio retain their authorship. **Revenge of Cats**
+is copyright Peter Hajba (Skaven); the retained track is not yet played by the
+Vulkan prototype. See [asset provenance](docs/ASSET_PROVENANCE.md), the original
+[README](README), and the retained in-game credits.
 
 The program is distributed under the GNU General Public License, version 2 or
 later, without warranty; see [COPYING](COPYING). Bundled Lua retains its separate
-[copyright and permission notice](packaging/LUA-COPYRIGHT.txt). GLTron is a fan
-game; no official TRON affiliation is claimed.
+[copyright and permission notice](packaging/LUA-COPYRIGHT.txt). VulkanTron is a
+fan project; no official TRON affiliation is claimed. Renderer work does not
+transfer ownership of the original game's assets.

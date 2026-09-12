@@ -49,5 +49,6 @@ set(CPACK_SOURCE_IGNORE_FILES
   "/__pycache__/" "[.]py[co]$"
   "/[.]gltronrc$" "/gltron[.]ini$" "/gltronPrefs[.]txt$"
   "/gltron-[0-9][^/]*-[0-9]+[.](png|bmp)$"
+  "/vulkantron-[0-9][^/]*[.]png$"
   "[.]tar[.]gz$" "[.]tar[.]gz[.]sha256$" "/gltron$")
 include(CPack)

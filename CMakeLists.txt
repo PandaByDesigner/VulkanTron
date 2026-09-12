@@ -142,6 +142,7 @@ target_link_libraries(gltron PRIVATE gltron_game gltron_lua gltron_options PNG::
 set_target_properties(gltron PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 
 include(cmake/BuildInfo.cmake)
+include(cmake/VulkanTron.cmake)
 if(BUILD_TESTING)
   include(cmake/Tests.cmake)
 endif()
