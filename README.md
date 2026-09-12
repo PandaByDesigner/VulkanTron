@@ -39,6 +39,8 @@ libpng, zlib, and libmikmod. Lua 4.0.1 is bundled. On Arch Linux these dependenc
 are available in `base-devel cmake ninja pkgconf sdl3 libglvnd libpng zlib libmikmod`.
 
 ```sh
+git clone https://github.com/PandaByDesigner/gltron-faithful-remaster.git
+cd gltron-faithful-remaster
 cmake --preset release
 cmake --build --preset release
 ctest --preset release

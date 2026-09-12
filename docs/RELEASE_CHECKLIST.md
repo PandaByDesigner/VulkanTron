@@ -77,9 +77,8 @@ reproduction path; byte-identical binaries across different toolchains are not
 claimed.
 
 The faithful artpack uses interpolation of the original samples, as approved;
-it does not reconstruct missing source detail. GitHub publication and the
-VulkanTron fork are separate actions; this work has not published either
-repository.
+it does not reconstruct missing source detail. This repository contains GLTron
+Faithful Remaster. VulkanTron remains a separate planned project.
 
 The OpenGL work here preserves presentation and robust resource handling. A
 full shader-renderer rewrite is reserved for VulkanTron under the agreed
