@@ -43,6 +43,7 @@ set(CPACK_SOURCE_IGNORE_FILES
   "/CMakeFiles/" "/CMakeCache[.]txt$" "/_CPack_Packages/"
   "/CMakeUserPresets[.]json$"
   "/compile_commands[.]json$"
+  "/__pycache__/" "[.]py[co]$"
   "/[.]gltronrc$" "/gltron[.]ini$" "/gltronPrefs[.]txt$"
   "/gltron-[0-9][^/]*-[0-9]+[.](png|bmp)$"
   "[.]tar[.]gz$" "[.]tar[.]gz[.]sha256$" "/gltron$")

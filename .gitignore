@@ -20,3 +20,5 @@ gltron.ini
 gltronPrefs.txt
 gltron-[0-9]*.png
 gltron-[0-9]*.bmp
+__pycache__/
+*.py[cod]

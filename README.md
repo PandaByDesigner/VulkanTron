@@ -86,13 +86,25 @@ override fails with a diagnostic.
 
 ## Install and package
 
+To add **GLTron Faithful Remaster** to your Linux app menu with its own icon,
+build the release first, then run:
+
 ```sh
-cmake --install build/release --prefix "$HOME/.local"
+python3 tools/install_user_launcher.py
 ```
 
-The install includes the executable, assets, desktop entry, icon, copyright
-notices, and build information. It does not replace your preferences. Ensure
-`$HOME/.local/bin` is on your PATH to launch the installed command by name.
+The installer needs `desktop-file-utils` and installs a separate copy under
+`~/.local/opt/gltron-faithful/<version>`, with a `gltron-faithful` command and app
+entry. It leaves the original GLTron installation available. On first launch,
+it copies existing `~/.gltronrc` controls into `~/.config/gltron-faithful` and
+selects the faithful artpack in that copy. Later preferences remain independent;
+screenshots go to `~/.local/share/gltron-faithful/screenshots`. The launcher
+honors `GLTRON_CONFIG_DIR` and `GLTRON_SCREENSHOT_DIR` overrides and the XDG
+configuration/data locations. Python is needed only to install the shortcut.
+
+The installed copy includes the assets, copyright notices, and build
+information. `cmake --install build/release --prefix <prefix>` remains available
+for a conventional installation into a prefix you manage.
 
 ```sh
 cmake --build build/release --target package
