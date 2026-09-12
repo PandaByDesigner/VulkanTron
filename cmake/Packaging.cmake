@@ -16,6 +16,9 @@ install(DIRECTORY docs DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron"
   FILES_MATCHING PATTERN "*.md")
 install(FILES packaging/LUA-COPYRIGHT.txt
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron/packaging")
+install(DIRECTORY packaging/icons
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron/packaging"
+  FILES_MATCHING PATTERN "*.png" PATTERN "*.md")
 configure_file(packaging/README.txt.in package-readme.txt @ONLY)
 install(FILES "${PROJECT_BINARY_DIR}/package-readme.txt"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/gltron" RENAME README.txt)
