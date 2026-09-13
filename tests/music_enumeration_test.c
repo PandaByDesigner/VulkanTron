@@ -8,6 +8,41 @@
 
 extern lua_State *L;
 static const char *music_directory;
+static int obsidian_enabled, available_effects, effect_load_count;
+static const char *effect_names[] = {
+  "game_engine.wav", "game_crash.wav", "game_recognizer.wav", "game_boost.wav"
+};
+int getVideoSettingi(const char *name) {
+  assert(strcmp(name, "obsidian_arena") == 0);
+  return obsidian_enabled;
+}
+char *getPath(int location, const char *name) {
+  int i;
+  assert(location == PATH_DATA);
+  if(strncmp(name, "obsidian/", 9) == 0) {
+    for(i = 0; i < 4; ++i)
+      if(strcmp(name + 9, effect_names[i]) == 0)
+        return (available_effects & (1 << i)) ? strdup(name) : NULL;
+    assert(0);
+  }
+  return strdup(name);
+}
+void Audio_LoadSample(char *name, int number) {
+  const int custom = obsidian_enabled && (available_effects & (1 << number));
+  assert(number == effect_load_count && number < 4);
+  assert(strcmp(name + (custom ? 9 : 0), effect_names[number]) == 0);
+  if(custom) assert(strncmp(name, "obsidian/", 9) == 0);
+  ++effect_load_count;
+}
+static void checkEffects(void) {
+  for(obsidian_enabled = 0; obsidian_enabled <= 1; ++obsidian_enabled) {
+    for(available_effects = 0; available_effects < 16; ++available_effects) {
+      effect_load_count = 0;
+      Sound_loadFX();
+      assert(effect_load_count == 3 + (obsidian_enabled && (available_effects & 8) != 0));
+    }
+  }
+}
 const char *getDirectory(int location) {
   assert(location == PATH_MUSIC);
   return music_directory;
@@ -60,9 +95,9 @@ int main(int argc, char **argv) {
   static const char unusual[] = "quote\" backslash\\ newline\n\303\251.it";
   static const char injection[] = "quote\"; injected = 1; --.it";
   const char *valid[] = {
-    "song.it", "UPPER.IT", unusual, injection,
+    "song.it", "UPPER.IT", unusual, injection, "legacy.wav", "RECORDED.WAV",
 #if !defined(GLTRON_SDL2_AUDIO) && !defined(GLTRON_SDL3_AUDIO)
-    "legacy.mod", "legacy.wav", "legacy.ogg", "legacy.mp3"
+    "legacy.mod", "legacy.ogg", "legacy.mp3"
 #endif
   };
   char template_path[] = "/tmp/gltron-music-enumeration.XXXXXX";
@@ -71,10 +106,12 @@ int main(int argc, char **argv) {
   DIR *directory;
   struct dirent *entry;
   assert(argc == 2);
+  checkEffects();
   music_directory = mkdtemp(template_path);
   assert(music_directory != NULL);
   makeFile("song.it"); makeFile("UPPER.IT"); makeFile(unusual); makeFile(injection);
   makeFile("legacy.mod"); makeFile("legacy.wav"); makeFile("legacy.ogg"); makeFile("legacy.mp3");
+  makeFile("RECORDED.WAV"); makeFile(".hidden.wav"); makeFile("track.wav.bak");
   makeFile("Makefile.am"); makeFile("Makefile.in"); makeFile("README.txt");
   makeFile("not-a-track"); makeFile("song.it.bak"); makeFile(".hidden.it");
   path = join(music_directory, "directory.it"); assert(mkdir(path, 0700) == 0); free(path);
@@ -133,6 +170,6 @@ int main(int argc, char **argv) {
     free(path);
   }
   closedir(directory); assert(rmdir(music_directory) == 0);
-  puts("PASS: supported music formats, regular-file filtering, literal filename bytes, selection/order, rescans and directory failures");
+  puts("PASS: supported music formats, regular-file filtering, literal filename bytes, selection/order, rescans, directory failures and effect-pack fallback");
   return 0;
 }

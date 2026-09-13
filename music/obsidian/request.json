@@ -1,0 +1,18 @@
+{
+  "title": "Obsidian Circuit",
+  "project": "VulkanTron",
+  "intent": "Original instrumental arena underscore: focused, weighty and propulsive, with space for engine and collision sounds.",
+  "style": "Purely instrumental cinematic electronic arena soundtrack, 112 BPM, D minor. A memorable original four-note synthesizer motif over a deep rounded analog bass ostinato, precise restrained electronic drums, bright interlocking sixteenth-note arpeggios, distant dark orchestral strings and spacious low brass swells. Sleek futuristic black-glass arena at night, controlled momentum, tension and wonder. Consistent rhythmic pulse, evolving layered instrumental texture, spacious mix, no overpowering risers, no abrupt section changes. Entirely instrumental. No vocals, no singing, no choir, no spoken word, no vocal samples.",
+  "lyrics": "[Instrumental]\n\n[Instrumental]\n\n[Instrumental]",
+  "seconds": 60,
+  "min_seconds": 55,
+  "planning": "off",
+  "steps": 8,
+  "threads": 6,
+  "seed": 913260112,
+  "backend": "cpu",
+  "main_model": "yue2-3b-q4_0.gguf",
+  "vae_model": "yue2-vae-f16.gguf",
+  "runtime_revision": "cda0e3a4762d855e865980506f934ec0e6928691",
+  "model_revision": "eb116220931de5f373d024d48800338178c7de51"
+}

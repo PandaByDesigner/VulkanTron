@@ -15,6 +15,7 @@ extern "C" {
 /* Callback fills tightly packed bottom-up RGB; nonzero means success. */
 typedef int (*VTReadbackCallback)(int, int, int, int, unsigned, unsigned, void *);
 void VT_SetReadbackCallback(VTReadbackCallback callback);
+void VT_BloomViewport(int x, int y, int width, int height, float strength);
 void VT_SetFramebufferInfo(int depth_bits, int stencil_bits, int max_texture_size, const char *renderer);
 void vt_glBegin(GLenum mode);
 void vt_glBindTexture(GLenum target, GLuint texture);

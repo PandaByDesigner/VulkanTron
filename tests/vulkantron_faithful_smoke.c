@@ -57,6 +57,14 @@ static void verifyLoadedTexture(const char *artpack, const char *filename,
   struct stat status;
   assert(snprintf(expected_path, sizeof(expected_path), "%s/%s/%s",
                   getDirectory(PATH_ART), artpack, filename) < (int)sizeof(expected_path));
+  /* Obsidian intentionally inherits the original HUD/font atlases. Its own
+     authored world assets must still resolve to the selected pack. */
+  if(strcmp(artpack, "obsidian") == 0 &&
+     (strcmp(filename, "babbage.0.png") == 0 || strcmp(filename, "babbage.1.png") == 0 ||
+      strcmp(filename, "xenotron.0.png") == 0 || strcmp(filename, "xenotron.1.png") == 0) &&
+     stat(expected_path, &status) != 0)
+    assert(snprintf(expected_path, sizeof(expected_path), "%s/default/%s",
+                    getDirectory(PATH_ART), filename) < (int)sizeof(expected_path));
   /* A missing or malformed faithful asset must fail this gate even though
    * production can safely fall back to the corresponding original. */
   assert(path != NULL && strcmp(path, expected_path) == 0);
@@ -229,6 +237,39 @@ static uint64_t stateHash(int visual) {
   return hash;
 }
 
+/* Opt-in diagnostics retain every strict hash field. They separate an inactive
+ * viewport's lifecycle from actual camera/appearance differences. */
+static void traceVisualState(const char *scene) {
+  int i, j;
+  const char *trace = getenv("VULKANTRON_TRACE_VISUAL_STATE");
+  if(trace == NULL || !trace[0] || strcmp(trace, "0") == 0) return;
+  for(i = 0; i < game->players; i++) {
+    const Camera *camera = game->player[i].camera;
+    const PlayerVisual *v = gPlayerVisuals+i;
+    uint64_t camera_hash = UINT64_C(14695981039346656037);
+    uint64_t appearance_hash = UINT64_C(14695981039346656037);
+    hashU32(&camera_hash, camera->type.type);
+    for(j = 0; j < 3; j++) {
+      hashFloat(&camera_hash, camera->cam[j]);
+      hashFloat(&camera_hash, camera->target[j]);
+    }
+    for(j = 0; j < 4; j++) {
+      hashFloat(&camera_hash, camera->movement[j]);
+      hashFloat(&appearance_hash, v->pColorDiffuse[j]);
+      hashFloat(&appearance_hash, v->pColorSpecular[j]);
+      hashFloat(&appearance_hash, v->pColorAlpha[j]);
+    }
+    hashU32(&appearance_hash, v->spoke_time);
+    hashU32(&appearance_hash, v->spoke_state);
+    hashFloat(&appearance_hash, v->exp_radius);
+    hashFloat(&appearance_hash, v->impact_radius);
+    fprintf(stderr, "FAITHFUL_VISUAL_COMPONENT scene=%s player=%d camera=%016" PRIx64
+           " appearance=%016" PRIx64 " viewport=%d,%d,%d,%d onScreen=%d\n",
+           scene, i, camera_hash, appearance_hash, v->display.vp_x,
+           v->display.vp_y, v->display.vp_w, v->display.vp_h, v->display.onScreen);
+  }
+}
+
 /* External user input is excluded from deterministic fixtures. Window events
  * still go through the actual platform handler, including deferred reshapes. */
 static void pumpWindow(void) {
@@ -292,6 +333,7 @@ static void captureScene(const char *name, const char *kind) {
   pumpWindow();
   gameplay = stateHash(0);
   visual_before = stateHash(1);
+  traceVisualState(name);
   assert(snprintf(capture_path, sizeof(capture_path), "%s/%s.png", capture_directory, name) < (int)sizeof(capture_path));
   SystemCaptureNextFrame(capturePixels);
   current->display();
@@ -477,7 +519,7 @@ int main(int argc, char **argv) {
   int window_count, i, minimize_supported = 0, visibility_fallback = 0;
   GLint stencil_bits, depth_bits;
   SDL_GLContext original_context = NULL;
-  assert(argc == 2 && (strcmp(argv[1], "default") == 0 || strcmp(argv[1], "faithful") == 0));
+  assert(argc == 2 && (strcmp(argv[1], "default") == 0 || strcmp(argv[1], "faithful") == 0 || strcmp(argv[1], "obsidian") == 0));
   selected_artpack = argv[1];
 #ifdef GLTRON_DIRECT_VULKAN
   capture_directory = getenv("VULKANTRON_SCREENSHOT_DIR");
@@ -490,6 +532,12 @@ int main(int argc, char **argv) {
   manifest = fopen(manifest_path, "wx");
   assert(manifest);
   initSubsystems(3, options);
+  for(i = 0; i < game->players; i++) {
+    const Visual *display = &gPlayerVisuals[i].display;
+    if(!display->onScreen)
+      assert(display->vp_x == 0 && display->vp_y == 0 &&
+             display->vp_w == 0 && display->vp_h == 0);
+  }
   assert(SystemGetElapsedTime() == 1000); /* Detect a missing linker clock wrapper. */
   windows = SDL_GetWindows(&window_count);
   assert(windows && window_count == 1);

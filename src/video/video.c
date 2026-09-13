@@ -123,9 +123,33 @@ void setupDisplay(Visual *d) {
   SystemReshapeFunc(reshape);
 }
 
+void reloadLightcycleModels(int obsidian) {
+  static int loaded_obsidian = -1;
+  Mesh *replacement[LC_LOD] = { NULL };
+  int i;
+  if(loaded_obsidian == obsidian) return;
+  for(i = 0; i < LC_LOD; i++) {
+    char *path = obsidian ? getArtPath("obsidian", lc_lod_names[i]) :
+                           getPath(PATH_DATA, lc_lod_names[i]);
+    replacement[i] = path != NULL ? readMeshFromFile(path, TRI_MESH) : NULL;
+    free(path);
+    if(replacement[i] == NULL) {
+      int j;
+      for(j = 0; j < i; j++) destroyMesh(replacement[j]);
+      fprintf(stderr, "fatal: could not load %s lightcycle model %s\n",
+              obsidian ? "Obsidian" : "classic", lc_lod_names[i]);
+      exit(EXIT_FAILURE);
+    }
+  }
+  for(i = 0; i < LC_LOD; i++) {
+    destroyMesh(lightcycle[i]);
+    lightcycle[i] = replacement[i];
+  }
+  loaded_obsidian = obsidian;
+}
+
 static void loadModels(void) {
 	char *path;
-	int i;
 	/* load recognizer model */
 	path = getPath(PATH_DATA, "recognizer.obj");
 	if(path != NULL) {
@@ -148,17 +172,7 @@ static void loadModels(void) {
 	}
 	free(path);
 
-	/* load lightcycle models */
-	for(i = 0; i < LC_LOD; i++) {
-		path = getPath(PATH_DATA, lc_lod_names[i]);
-		if(path != NULL) {
-			lightcycle[i] = readMeshFromFile(path, TRI_MESH);
-		} else {
-			fprintf(stderr, "fatal: could not load model %s - exiting...\n", lc_lod_names[i]);
-			exit(1); /* OK: critical, installation corrupt */
-		}
-		free(path);
-	}
+	reloadLightcycleModels(0);
 }
 
 void initVideoData(void) {
@@ -175,7 +189,14 @@ void initVideoData(void) {
 		d->textures = (unsigned int*) malloc(game_textures * sizeof(unsigned int));
 	}
 
-	gPlayerVisuals = (PlayerVisual*) malloc(MAX_PLAYERS * sizeof(PlayerVisual));
+  /* updateDisplay fills rectangles only for visible players. Define hidden
+   * viewports from the start instead of retaining allocator bytes until those
+   * players first receive a split-screen viewport. */
+  gPlayerVisuals = (PlayerVisual*) calloc(MAX_PLAYERS, sizeof(PlayerVisual));
+  if(gPlayerVisuals == NULL) {
+    fprintf(stderr, "fatal: could not allocate player visuals\n");
+    exit(EXIT_FAILURE);
+  }
 
 	loadModels();
 

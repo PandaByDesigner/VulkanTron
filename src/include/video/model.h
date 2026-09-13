@@ -56,6 +56,7 @@ typedef enum {
 } MeshType;
     
 extern Mesh* readMeshFromFile(const char* filename, MeshType type);
+extern void destroyMesh(Mesh *mesh);
 extern void drawModel(Mesh* pMesh, MeshType type);
 extern void drawModelExplosion(Mesh *pMesh, float fRadius);
 

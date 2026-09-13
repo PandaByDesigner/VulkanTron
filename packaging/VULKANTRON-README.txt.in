@@ -1,6 +1,7 @@
 VulkanTron @VULKANTRON_VERSION@
 
-Run ./bin/vulkantron from the extracted archive. The executable finds the
+Run ./bin/vulkantron --obsidian to select the Obsidian arena for this session.
+Run ./bin/vulkantron to use your saved presentation. The executable finds the
 included assets and shaders relative to its location, including when launched
 from another working directory. Run ./bin/vulkantron --help for options.
 The preserved OpenGL comparison executable is ./bin/gltron.
@@ -11,15 +12,31 @@ Install runtime libraries and your GPU's Vulkan driver through your distribution
 Drivers and system shared libraries are not bundled. --validation additionally
 requires the Khronos validation layer.
 
-Original gameplay, menus, cameras, local multiplayer, assets and music are
-retained. Artpacks, audio and controls are selectable in the original menus.
+Obsidian adds a dark luminous arena, newly authored cycle models and textures,
+approximate floor reflections, bloom confined to each player view, original
+YuE2 music, and synthesized engine/boost/impact effects. Reflections are an
+artistic approximation. The original game rules, AI, controls, cameras and
+local multiplayer layouts remain shared with the faithful port. Classic and
+faithful artpacks, original music, and custom controls remain menu selections.
+The --obsidian session choice is saved only when you save preferences.
+
+Default first-player controls: A/S turn, E boost, Q/W glance, Space pause,
+Escape menus, F10 camera. Existing saved bindings take precedence. F1/F2/F3/F4
+select single/stacked/four-player/automatic views.
 VulkanTron preferences default to $XDG_CONFIG_HOME/vulkantron/.gltronrc, or
 ~/.config/vulkantron/.gltronrc. Screenshots default to
 $XDG_STATE_HOME/vulkantron/screenshots, or ~/.local/state/vulkantron/screenshots.
 VULKANTRON_CONFIG_DIR and VULKANTRON_SCREENSHOT_DIR override those directories.
-F5 saves preferences; F11 saves BMP; F12 saves PNG.
+F5 saves preferences; F11 saves BMP; F12 saves PNG. When installing through
+tools/install_vulkantron_launcher.py, a fresh app profile selects Obsidian.
+The optional --select-obsidian installer flag backs up an existing VulkanTron
+profile and changes only its bundled artpack/music selections.
 
 COPYING contains the game license. licenses/LUA-COPYRIGHT.txt contains the
 bundled Lua notice. The included documentation records provenance, architecture,
-verification results and platform limits. This remains an independent project;
+verification results and platform limits. OBSIDIAN_AUDIO.md documents prompts,
+seeds, source preservation, file checks and the absence of a listening review.
+The installed YuE2 model card identifies its weights as CC BY-NC 4.0; the audio
+notes record this separately from the game and original asset licenses.
+This remains an independent project;
 the original GLTron contributors retain their authorship and asset credits.

@@ -13,6 +13,7 @@
 
 extern lua_State *L;
 static const char *art_directory;
+static int art_visual_flag, loaded_visual_flag = -1;
 Visual *gScreen;
 const char *getDirectory(int location) { assert(location == PATH_ART); return art_directory; }
 char *getArtPath(const char *pack, const char *filename) { (void)pack; (void)filename; return NULL; }
@@ -20,6 +21,11 @@ void runScript(int location, const char *name) { (void)location; (void)name; }
 void initTexture(Visual *display) { (void)display; }
 void deleteTextures(Visual *display) { (void)display; }
 void initFonts(void) {}
+int getVideoSettingi(const char *name) {
+  assert(strcmp(name, "obsidian_arena") == 0);
+  return art_visual_flag;
+}
+void reloadLightcycleModels(int obsidian) { loaded_visual_flag = obsidian; }
 
 static char *join(const char *parent, const char *name) {
   size_t size = strlen(parent) + strlen(name) + 2;
@@ -109,6 +115,14 @@ int main(int argc, char **argv) {
   script = join(argv[1], "scripts/video.lua");
   assert(scripting_RunFileChecked(script) == 0);
   free(script);
+  /* Art loading applies the model choice in both directions, independently
+   * of enumeration order or the prior model pack. */
+  art_visual_flag = 1;
+  loadArt();
+  assert(loaded_visual_flag == 1);
+  art_visual_flag = 0;
+  reloadArt();
+  assert(loaded_visual_flag == 0);
   for(iteration = 0; iteration < 32; iteration++) {
     int top = lua_gettop(L);
     initArtpacks();

@@ -8,7 +8,7 @@
 #include "stdlib.h"
 #include "zlib.h"
 
-extern void readMaterialLibrary(char *buf, Mesh *pMesh);
+extern void readMaterialLibrary(char *buf, Mesh *pMesh, const char *mesh_filename);
 extern void setMaterial(char *buf, Mesh *pMesh, int *iGroup);
 
 void readVector(char *buf, vec3 *pVertex ) {
@@ -90,7 +90,7 @@ Mesh* readMeshFromFile(const char *filename, MeshType iType) {
   while( gzgets(f, buf, sizeof(buf)) ) {
     switch(buf[0]) {
     case 'm': // material library
-      readMaterialLibrary(buf, pMesh);
+      readMaterialLibrary(buf, pMesh, filename);
       break;
     case 'u': // material  name
       setMaterial(buf, pMesh, &iGroup);
@@ -244,6 +244,7 @@ Mesh* readMeshFromFile(const char *filename, MeshType iType) {
     }
     // printf("[scenegraph] vertices: %d, faces: %d\n", nVertices, iFace);
 
+    for(i = 0; i < iVertex; i++) free(lookup[i]);
     free(lookup);
     free(pVertices);
     free(pNormals);
@@ -259,6 +260,22 @@ Mesh* readMeshFromFile(const char *filename, MeshType iType) {
   computeBBox(pMesh);
 
   return pMesh;
+}
+
+void destroyMesh(Mesh *mesh) {
+  int i;
+  if(mesh == NULL) return;
+  for(i = 0; i < mesh->nMaterials; i++) {
+    free(mesh->pMaterials[i].name);
+    free(mesh->pMaterials[i].map_diffuse);
+    free(mesh->ppIndices[i]);
+  }
+  free(mesh->pMaterials);
+  free(mesh->ppIndices);
+  free(mesh->pnFaces);
+  free(mesh->pVertices);
+  free(mesh->pNormals);
+  free(mesh);
 }
 
 void drawModel(Mesh *pMesh, MeshType iType) {

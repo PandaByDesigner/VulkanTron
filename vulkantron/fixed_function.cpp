@@ -1260,6 +1260,19 @@ void vt_glClear(GLbitfield mask) {
     clear.scissor = s.draw.scissor;
     s.frame.commands.emplace_back(clear);
 }
+void VT_BloomViewport(int x, int y, int width, int height, float strength) {
+    if (!outside()) return;
+    if (width < 0 || height < 0 || !std::isfinite(strength) || strength < 0 || strength > 1) {
+        error(GL_INVALID_VALUE);
+        return;
+    }
+    if (!width || !height || strength == 0) return;
+    if (s.frame.commands.size() >= max_commands) {
+        resource_error("Arena bloom exceeds frame command limit");
+        return;
+    }
+    s.frame.commands.emplace_back(vt::BloomCommand{{x,y,width,height},strength});
+}
 void vt_glGenTextures(GLsizei count, GLuint *names) {
     if (!outside())
         return;

@@ -39,7 +39,11 @@ void drawGlow(Camera *pCam, Player *pTarget, PlayerVisual *pV,
 		else if(dist > fMax) alpha = 1.0f;
 		else alpha = (dist - fMin) / (fMax - fMin);
 		// printf("dist: %.2f, alpha: %.2f\n", dist, alpha);
-	}
+  }
+  if(gSettingsCache.obsidian_arena) {
+    alpha *= .18f;
+    dim *= .55f;
+  }
   glBegin(GL_TRIANGLE_FAN);
   glColor4f(pV->pColorDiffuse[0], 
 						pV->pColorDiffuse[1], 
@@ -108,9 +112,10 @@ void drawImpact(PlayerVisual *pV) {
   glTranslatef(0.0, -0.5, -0.5);
 
   glColor3f(0.68f, 0, 0);
+  if(gSettingsCache.obsidian_arena)
+    glColor3f(.18f,.75f,1);
   
   drawExplosion(&(pV->impact_radius));
   glPopMatrix();
   glEnable(GL_LIGHTING);
 }
-

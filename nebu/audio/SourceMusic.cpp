@@ -4,13 +4,171 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <ctype.h>
+#include <limits.h>
 
 namespace Sound {
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+  namespace {
+    const unsigned kMaxWavBytes = 64u * 1024u * 1024u;
+
+    Uint32 little32(const Uint8 *bytes) {
+      return (Uint32)bytes[0] | ((Uint32)bytes[1] << 8) |
+             ((Uint32)bytes[2] << 16) | ((Uint32)bytes[3] << 24);
+    }
+
+    unsigned little16(const Uint8 *bytes) {
+      return (unsigned)bytes[0] | ((unsigned)bytes[1] << 8);
+    }
+
+    bool wavExtension(const char *filename) {
+      const char *extension = strrchr(filename, '.');
+      return extension != NULL && strlen(extension) == 4 &&
+        tolower((unsigned char)extension[1]) == 'w' &&
+        tolower((unsigned char)extension[2]) == 'a' &&
+        tolower((unsigned char)extension[3]) == 'v';
+    }
+
+    /* SDL's WAV loader intentionally tolerates some truncated files. Check the
+       complete RIFF structure and allocation bounds first, before it allocates.
+       The authored music contract is PCM16 mono/stereo, 8..192 kHz. */
+    bool validWav(const char *filename, Uint32 *data_bytes,
+                  unsigned *channels, Uint32 *rate) {
+      FILE *file = fopen(filename, "rb");
+      if(file == NULL) return false;
+      Uint8 header[16];
+      bool valid = false, have_format = false, have_data = false;
+      long file_size;
+      uint64_t end, cursor;
+      if(fseek(file, 0, SEEK_END) != 0 || (file_size = ftell(file)) < 12 ||
+         (unsigned long)file_size > kMaxWavBytes ||
+         fseek(file, 0, SEEK_SET) != 0 || fread(header, 1, 12, file) != 12 ||
+         memcmp(header, "RIFF", 4) != 0 || memcmp(header + 8, "WAVE", 4) != 0)
+        goto done;
+      end = (uint64_t)little32(header + 4) + 8;
+      if(end < 12 || end > (uint64_t)file_size) goto done;
+      cursor = 12;
+      while(cursor < end) {
+        if(end - cursor < 8 || fseek(file, (long)cursor, SEEK_SET) != 0 ||
+           fread(header, 1, 8, file) != 8) goto done;
+        const Uint32 size = little32(header + 4);
+        const uint64_t next = cursor + 8 + size + (size & 1);
+        if(next > end) goto done;
+        if(memcmp(header, "fmt ", 4) == 0) {
+          if(have_format || size < 16 || fread(header, 1, 16, file) != 16)
+            goto done;
+          *channels = little16(header + 2);
+          *rate = little32(header + 4);
+          if(little16(header) != 1 || (*channels != 1 && *channels != 2) ||
+             *rate < 8000 || *rate > 192000 || little16(header + 14) != 16 ||
+             little16(header + 12) != *channels * 2 ||
+             little32(header + 8) != *rate * *channels * 2) goto done;
+          have_format = true;
+        } else if(memcmp(header, "data", 4) == 0) {
+          if(!have_format || have_data || size == 0 || size % (*channels * 2))
+            goto done;
+          *data_bytes = size;
+          have_data = true;
+        }
+        cursor = next;
+      }
+      valid = have_format && have_data;
+    done:
+      fclose(file);
+      return valid;
+    }
+  }
+
+  int SourceMusic::LoadWav(void) {
+    AudioInfo *desired = _system->GetAudioInfo();
+    Uint32 data_bytes = 0, rate = 0;
+    unsigned channels = 0;
+    if(desired->format != NEBU_AUDIO_S16 || desired->channels != 2 ||
+       desired->rate != 22050 ||
+       !validWav(_filename, &data_bytes, &channels, &rate) ||
+       /* Include a small resampler tail in the conservative output bound. */
+       (((uint64_t)data_bytes / (channels * 2) * desired->rate / rate) + 64) * 4
+         > kMaxWavBytes) {
+      fprintf(stderr, "[error] invalid, unsupported or oversized PCM16 music '%s'\n",
+              _filename);
+      return 0;
+    }
+
+    SDL_AudioSpec loaded;
+    Uint8 *pcm = NULL;
+    Uint32 size = 0;
+    if(!SDL_LoadWAV(_filename, &loaded, &pcm, &size)) {
+      fprintf(stderr, "[error] failed loading WAV music '%s': %s\n",
+              _filename, SDL_GetError());
+      return 0;
+    }
+    if(size != data_bytes || loaded.channels != (int)channels ||
+       loaded.freq != (int)rate || size > INT_MAX) {
+      SDL_free(pcm);
+      return 0;
+    }
+    int converted_size = (int)size;
+    if(loaded.format != desired->format || loaded.channels != desired->channels ||
+       loaded.freq != (int)desired->rate) {
+#ifdef GLTRON_SDL3_AUDIO
+      SDL_AudioSpec target;
+      target.format = (SDL_AudioFormat)desired->format;
+      target.channels = desired->channels;
+      target.freq = desired->rate;
+      Uint8 *converted = NULL;
+      if(!SDL_ConvertAudioSamples(&loaded, pcm, (int)size, &target,
+                                 &converted, &converted_size)) {
+        fprintf(stderr, "[error] failed converting WAV music '%s': %s\n",
+                _filename, SDL_GetError());
+        SDL_free(pcm);
+        return 0;
+      }
+      SDL_free(pcm);
+      pcm = converted;
+#else
+      SDL_AudioCVT cvt;
+      const int conversion = SDL_BuildAudioCVT(&cvt, loaded.format,
+        loaded.channels, loaded.freq, desired->format, desired->channels,
+        desired->rate);
+      if(conversion < 0 || cvt.len_mult <= 0 ||
+         size > kMaxWavBytes / (unsigned)cvt.len_mult) {
+        SDL_free(pcm);
+        return 0;
+      }
+      cvt.len = (int)size;
+      cvt.buf = (Uint8*)SDL_malloc(size * cvt.len_mult);
+      if(cvt.buf == NULL) { SDL_free(pcm); return 0; }
+      memcpy(cvt.buf, pcm, size);
+      SDL_free(pcm);
+      if(conversion > 0 && SDL_ConvertAudio(&cvt) < 0) {
+        SDL_free(cvt.buf);
+        return 0;
+      }
+      pcm = cvt.buf;
+      converted_size = conversion > 0 ? cvt.len_cvt : cvt.len;
+#endif
+    }
+    if(converted_size <= 0 || (unsigned)converted_size > kMaxWavBytes ||
+       converted_size % 4 != 0) {
+      SDL_free(pcm);
+      return 0;
+    }
+    _wav_buffer = pcm;
+    _wav_size = converted_size;
+    _wav_position = 0;
+    return 1;
+  }
+#endif
+
   SourceMusic::SourceMusic(System *system) { 
     _system = system;
 
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     _module = NULL;
+    _wav_buffer = NULL;
+    _wav_size = 0;
+    _wav_position = 0;
 #else
     _sample = NULL;
 #endif
@@ -66,6 +224,8 @@ namespace Sound {
 
   int SourceMusic::CreateSample(void) {
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+    if(wavExtension(_filename))
+      return LoadWav();
     AudioInfo *info = _system->GetAudioInfo();
     if(info->format != NEBU_AUDIO_S16 || info->channels != 2) {
       fprintf(stderr,
@@ -126,6 +286,7 @@ namespace Sound {
   }
 
   int SourceMusic::Load(char *filename) {
+		if(filename == NULL) return 0;
 		if(_buffer == NULL
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
 		   || _sample_buffer == NULL
@@ -135,7 +296,10 @@ namespace Sound {
 			return 0;
 		}
 
-		int n = strlen(filename);
+		CleanUp();
+		free(_filename);
+		_filename = NULL;
+		size_t n = strlen(filename);
 		_filename = (char*) malloc(n + 1);
 		if(_filename == NULL)
 			return 0;
@@ -145,7 +309,7 @@ namespace Sound {
 
   int SourceMusic::HasSample(void) const {
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
-    return _module != NULL;
+    return _module != NULL || _wav_buffer != NULL;
 #else
     return _sample != NULL;
 #endif
@@ -156,6 +320,10 @@ namespace Sound {
     _decoded = 0;
 
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+    SDL_free(_wav_buffer);
+    _wav_buffer = NULL;
+    _wav_size = 0;
+    _wav_position = 0;
     if(_module != NULL) {
       LockDecoder();
       Player_Free(_module);
@@ -185,6 +353,36 @@ namespace Sound {
 		// printf("mixing %d bytes\n", len);
 
     int volume = (int)(_volume * NEBU_MIX_MAXVOLUME);
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+    if(_wav_buffer != NULL) {
+      if(len < 0 || len % 4 != 0) {
+#ifndef macintosh
+        nebu_AudioSemPost(_sem);
+#endif
+        return 0;
+      }
+      while(len > 0 && _isPlaying) {
+        int count = _wav_size - _wav_position;
+        if(count > len) count = len;
+        nebu_MixAudio(data, _wav_buffer + _wav_position, count, volume);
+        _wav_position += count;
+        data += count;
+        len -= count;
+        if(_wav_position == _wav_size) {
+          if(_loop != 0) {
+            if(_loop != 255) --_loop;
+            _wav_position = 0;
+          } else {
+            _isPlaying = 0;
+          }
+        }
+      }
+#ifndef macintosh
+      nebu_AudioSemPost(_sem);
+#endif
+      return 1;
+    }
+#endif
     // fprintf(stderr, "setting volume to %.3f -> %d\n", _volume, volume);
     // fprintf(stderr, "entering mixer\n");
 		
@@ -213,6 +411,9 @@ namespace Sound {
 	}
 
 	void SourceMusic::Idle(void) {
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+    if(_wav_buffer != NULL) return;
+#endif
 #ifndef macintosh
 		if(nebu_AudioSemWait(_sem))
 			return;

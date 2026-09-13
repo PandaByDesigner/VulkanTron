@@ -9,13 +9,48 @@ SDL_GPU is not the renderer abstraction for this project.
 
 VulkanTron is a separate project built from the completed GLTron Faithful
 Remaster. Keep that OpenGL implementation runnable as the preservation
-reference. Reuse its game rules and content while replacing how the scene is
-drawn. The present milestone does not authorize changing physics, AI, music,
-art direction, or the original local multiplayer topology.
+reference. The **0.2.0 faithful phase is complete** on the tested Linux system,
+with its documented visual differences and platform limits retained in the
+verification report.
 
-The first target is Linux on the available GeForce GTX 1660. Its driver reports
-Vulkan 1.4.341; the renderer baseline is Vulkan 1.3. Additional hardware and
+The user has accepted the next phase: **0.3.0 Obsidian**, a cinematic,
+TRON: Legacy-inspired lightcycle arena using newly authored visual assets,
+original local YuE2 music, and designed effects. This expands presentation
+while retaining the shared game rules, physics, AI, original controls and
+local multiplayer topology. Classic and faithful artpacks remain selectable.
+
+The first target is Linux on the available GeForce GTX 1660; the renderer
+baseline is Vulkan 1.3. Additional hardware and
 operating systems require their own capability and behavior checks.
+
+## Accepted Obsidian milestone
+
+The first Obsidian arena builds a coherent presentation around the existing
+playable game: a dark arena, luminous cyan and amber architectural elements,
+new cycle silhouettes, readable energy trails, brighter impacts, and restrained
+screen effects. Floor reflections are an artistic approximation. Bloom is
+confined to each player's rendered view so the menus and HUD stay legible.
+
+Its soundtrack is the original **Obsidian Circuit** local YuE2 study, edited to
+a roughly 54-second loop. Newly synthesized cycle drive, boost, crash and
+ambient-vehicle effects accompany it. The [audio production record](OBSIDIAN_AUDIO.md)
+keeps the request, seed, source hash, processing, raw preservation path and
+technical validation. A subjective listening review has not been recorded.
+
+Fresh app-menu profiles select Obsidian. Existing VulkanTron profiles can
+adopt its bundled artpack and track through `--select-obsidian` on the installer,
+which retains a byte-for-byte profile backup and changes only those selections.
+The game also accepts `--obsidian` for a session selection. Previous installed
+versions and the preserved OpenGL reference remain available.
+
+The first Obsidian milestone is verified on the development machine: inherited
+gameplay/input/layout checks, PCM audio checks, real per-view Vulkan captures,
+validation-enabled window lifecycle checks, and staged installed gameplay,
+audio and profile checks passed. The classic 39-scene renderer comparison
+retains exact state parity and its existing three coplanar pixel exceptions.
+Measured frame timings include capture/display conditions; presentation timing
+alone is not a GPU benchmark. See the
+[Obsidian verification report](OBSIDIAN_VERIFICATION.md).
 
 ## Complete-game integration
 
@@ -97,7 +132,7 @@ and crash effects, recognizer presentation, audio/music, split-screen,
 configurable input, and saved preferences. The retained OpenGL executable
 provides those features while the Vulkan implementation is incomplete.
 
-## Evidence required before widening scope
+## Faithful baseline evidence retained for future changes
 
 The headless bridge gate must verify deterministic reset and repeated stepping,
 production left/right events and boost, camera changes that leave gameplay
@@ -117,9 +152,14 @@ The inherited [release checklist](RELEASE_CHECKLIST.md) and
 [faithful README](FAITHFUL_REFERENCE_README.md) document the OpenGL remaster.
 They must never be used as evidence that a new Vulkan rendering feature passed.
 Record actual Vulkan results with the revision and commands used after running
-them. This initial plan makes no claim that native Vulkan checks have passed.
+them. The original faithful phase's completed results remain historical
+evidence; new Obsidian code requires its own verification.
 
 ## Testable parity milestones
+
+These milestones describe the completed 0.2.0 faithful phase. Their checks
+continue to guard the preserved presentation as Obsidian is added; the accepted
+artistic differences of Obsidian are reviewed against its own brief.
 
 | Milestone | Work | Evidence needed |
 | --- | --- | --- |

@@ -161,7 +161,7 @@ def run_fixture(executable, artpack, directory, assets, driver, vulkan):
         'settings.current_artpack = "default"\nsettings.width = 800\n'
         'settings.height = 600\nsettings.windowMode = 1\nsave_completed = 1\n')
     env = os.environ.copy()
-    for key in ("VULKANTRON_CONFIG_DIR", "VULKANTRON_SCREENSHOT_DIR", "VULKANTRON_DATA_DIR"):
+    for key in ("VULKANTRON_CONFIG_DIR", "VULKANTRON_SCREENSHOT_DIR", "VULKANTRON_DATA_DIR", "VULKANTRON_PRESENTATION"):
         env.pop(key, None)
     env.update({"GLTRON_CONFIG_DIR": str(config), "GLTRON_SCREENSHOT_DIR": str(captures),
                 "GLTRON_DATA_DIR": str(assets), "SDL_VIDEO_DRIVER": driver,

@@ -2,23 +2,38 @@
 
 <img src="packaging/icons/vulkantron.svg" alt="VulkanTron icon" width="128">
 
-**GLTron's faithful remaster, rendered with direct Vulkan.** VulkanTron keeps
-its original gameplay, menus, lightcycles, cameras, local multiplayer, artpacks,
-fonts, effects, and music. SDL3 handles windows, input, controllers, and audio.
+**A cinematic lightcycle arena built on GLTron's faithful direct-Vulkan port.**
+Version **0.3.0** introduces **Obsidian**: a dark arena with luminous cycle
+silhouettes, cyan and amber architecture, new energy trails and impacts,
+approximate floor reflections, and bloom confined to each player's view.
+Its original **Obsidian Circuit** soundtrack was generated locally with YuE2;
+the engine, boost and crash sounds are newly synthesized.
+
+![Obsidian arena in the installed VulkanTron game](docs/images/obsidian-arena.png)
+
+VulkanTron retains the original game rules, AI, controls, menus, cameras, and
+local multiplayer layouts. Classic and faithful artpacks remain selectable,
+with the original models, effects and music available. SDL3 handles windows,
+input, controllers, and audio.
 The renderer uses Vulkan directly; it does not use SDL_GPU or an OpenGL driver.
 
 The preserved OpenGL remaster is included as a comparison executable. The
 initial simplified Vulkan arena is now a separate development tool,
 `vulkantron-lab`; the normal `vulkantron` executable runs the complete game.
 
-Version **0.2.0** completes the faithful full-game port on the tested Linux
-system. Release and sanitizer tests pass, and the native OpenGL/Vulkan
-comparison covers both original and faithful artpacks. Three explosion
-fixtures have documented coplanar depth differences; this is not a claim of
-bit-identical rendering on every GPU.
+Version **0.2.0** completed the faithful full-game port on the tested Linux
+system. Its native OpenGL/Vulkan comparison covered original and faithful
+artpacks, with documented coplanar depth differences in three explosion
+fixtures. The **0.3.0 Obsidian release passed 21 Release and 21 sanitizer tests,
+native X11/Wayland arena captures, and installed gameplay/audio checks**.
+The original artpack also passed the strict 39-scene renderer comparison.
+Audio files pass technical checks; a subjective listening review has not been
+recorded. Obsidian's reflection treatment is an
+artistic approximation, and its bloom is limited to the game views.
 See the [renderer architecture](docs/VULKANTRON_RENDERER.md),
 [development plan](docs/VULKANTRON_PLAN.md), and
-[verification report](docs/VULKANTRON_VERIFICATION.md) for scope and evidence.
+[faithful verification](docs/VULKANTRON_VERIFICATION.md) and
+[Obsidian verification](docs/OBSIDIAN_VERIFICATION.md) for scope and evidence.
 Linux is the tested platform; other operating systems require their own ports
 and verification.
 
@@ -58,6 +73,7 @@ effects, cameras, and one-, two-, or four-player layouts. Useful options:
 
 ```sh
 ./build/release/bin/vulkantron --help
+./build/release/bin/vulkantron --obsidian
 ./build/release/bin/vulkantron --validation
 ./build/release/bin/vulkantron -i -8
 ```
@@ -65,20 +81,33 @@ effects, cameras, and one-, two-, or four-player layouts. Useful options:
 `--validation` requires the Khronos validation layer and fails explicitly if
 it is unavailable. `-i -8` requests a 1280×720 window; the desktop may constrain
 its actual size. In game, F5 saves preferences, F11 saves BMP, and F12 saves PNG.
+`--obsidian` selects the arena and its bundled soundtrack for this session;
+F5 makes that selection persistent. The artpack and soundtrack menus can select
+the classic or faithful presentation at any time.
+
+Default first-player controls are **A/S** to turn, **E** to boost, and **Q/W**
+to glance. Existing saved bindings take precedence. Use arrows and Enter in
+menus, Space to pause, Escape to return through menus, and F10 to cycle cameras.
+F1/F2/F3/F4 select single, stacked, four-way, or automatic views. Player count
+and all bindings remain configurable through the original menus.
 
 ## App-menu installation and preferences
 
 After a full release build, install a separate user-local copy and launcher:
 
 ```sh
-python3 tools/install_vulkantron_launcher.py
+python3 tools/install_vulkantron_launcher.py --select-obsidian
 ```
 
 The installer requires Python 3.11 or newer and `desktop-file-validate`. It
 installs under `~/.local/opt/vulkantron`, adds `~/.local/bin/vulkantron`, and
 creates the **VulkanTron** application entry with its own icon. It verifies
 installed content and preserves previous versions. A fresh launcher profile
-selects the optional faithful artwork; the original artpacks remain selectable.
+selects Obsidian and `song_obsidian_arena.wav`. `--select-obsidian` also selects
+these in an existing VulkanTron profile: it first saves a timestamped
+`.gltronrc.pre-obsidian-*.bak` beside the profile, then atomically appends only
+the artpack and soundtrack choices. Existing controls and other settings are
+preserved. Omit the flag to retain an existing profile's current selections.
 
 Preferences default to `~/.config/vulkantron/.gltronrc`; screenshots default to
 `~/.local/state/vulkantron/screenshots`. The corresponding XDG environment
@@ -168,3 +197,9 @@ later, without warranty; see [COPYING](COPYING). Bundled Lua retains its separat
 [copyright and permission notice](packaging/LUA-COPYRIGHT.txt). VulkanTron is a
 fan project; no official TRON affiliation is claimed. Renderer work does not
 transfer ownership of the original game's assets.
+
+Obsidian's authored visuals have their own [asset record](art/obsidian/manifest.json).
+The [audio notes](docs/OBSIDIAN_AUDIO.md) preserve the original prompt, seed,
+render settings, synthesis method, hashes, and technical review limits.
+The installed YuE2 model card identifies its weights as CC BY-NC 4.0; those
+notes record model metadata separately from the original game's asset credits.

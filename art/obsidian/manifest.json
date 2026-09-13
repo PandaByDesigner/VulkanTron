@@ -1,0 +1,85 @@
+{
+  "generator": "tools/create_obsidian_art.py",
+  "source": "Original procedural geometry",
+  "models": {
+    "high": {
+      "vertices": 1792,
+      "normals": 1122,
+      "triangles": 3552,
+      "bounds": [
+        [
+          -1.0,
+          1.0
+        ],
+        [
+          -4.87,
+          4.73
+        ],
+        [
+          -1.52,
+          1.52
+        ]
+      ]
+    },
+    "med": {
+      "vertices": 946,
+      "normals": 522,
+      "triangles": 1860,
+      "bounds": [
+        [
+          -1.0,
+          1.0
+        ],
+        [
+          -4.87,
+          4.73
+        ],
+        [
+          -1.52,
+          1.52
+        ]
+      ]
+    },
+    "low": {
+      "vertices": 502,
+      "normals": 242,
+      "triangles": 972,
+      "bounds": [
+        [
+          -1.0,
+          1.0
+        ],
+        [
+          -4.87,
+          4.73
+        ],
+        [
+          -1.52,
+          1.52
+        ]
+      ]
+    }
+  },
+  "sha256": {
+    "gltron.png": "593f9f48d317872449807dae62a96c4e4a08fd59447421ea5c10ca33e7140249",
+    "gltron_floor.png": "3828e967361a620f8f98d7c0845e187bb2f2a97b3e9204f3a8535d756f708bac",
+    "gltron_impact.png": "ac0fb97e6371cb6723110ed716bd51d8c99071ad50377956b87a20f1fde9f4e5",
+    "gltron_logo.png": "585ce35dde77a621723969e475e7b6fee18fe30cece42237ddb6943aca5f825a",
+    "gltron_trail.png": "19292d14f6fed827883644eba46671a377a4f83aebcbe076975d0ff0114c0729",
+    "gltron_traildecal.png": "19292d14f6fed827883644eba46671a377a4f83aebcbe076975d0ff0114c0729",
+    "gltron_wall_1.png": "20c0de68ffb94492d4ca84a7626bbbca09a3a43aa2b3af4b2e1290838b6394c4",
+    "gltron_wall_2.png": "327498c4fe6e0f541945f7bfcead5951f1f3586f86ec6fd3de995c34757d7a44",
+    "gltron_wall_3.png": "20c0de68ffb94492d4ca84a7626bbbca09a3a43aa2b3af4b2e1290838b6394c4",
+    "gltron_wall_4.png": "327498c4fe6e0f541945f7bfcead5951f1f3586f86ec6fd3de995c34757d7a44",
+    "lightcycle-high.obj": "9b85ad76f3126fe6b1c8d3a2f706f56d6047093ca13d569954674b5ac358aefb",
+    "lightcycle-low.obj": "4c4247f404630480578b1967d3008ec8805d680ae198ebb9ee2f7244e3b15896",
+    "lightcycle-med.obj": "f45fd87f794d855a42bbe532d8426c42f688d74410f1029f80cc10496af36880",
+    "lightcycle.mtl": "12b3097dbf4bbbafad38af030ed9f87fb0ba3bfdb6f7ebdb3f6f6245fbf90bdb",
+    "skybox0.png": "6188e4a85f7738e9f1703f63895307b5537f17a5ffbd6a1df607a659a9ce35d0",
+    "skybox1.png": "f73105f47b8f2b962d0d200151101bff69c6b1c78dd6c85c8220782adde5edcb",
+    "skybox2.png": "6188e4a85f7738e9f1703f63895307b5537f17a5ffbd6a1df607a659a9ce35d0",
+    "skybox3.png": "6188e4a85f7738e9f1703f63895307b5537f17a5ffbd6a1df607a659a9ce35d0",
+    "skybox4.png": "de52f51984dd8f1e3ec59fd00421d78893d0ff31f4d38b6d9086801c3f1ac4dc",
+    "skybox5.png": "6188e4a85f7738e9f1703f63895307b5537f17a5ffbd6a1df607a659a9ce35d0"
+  }
+}

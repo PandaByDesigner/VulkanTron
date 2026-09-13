@@ -86,6 +86,10 @@ void drawGame(void) {
 			initHudCanvas(&hud, d, i);
       glViewport(d->vp_x, d->vp_y, d->vp_w, d->vp_h);
 				drawCam(p, pV);
+#ifdef GLTRON_DIRECT_VULKAN
+      if(gSettingsCache.obsidian_arena && gSettingsCache.show_glow)
+        VT_BloomViewport(d->vp_x, d->vp_y, d->vp_w, d->vp_h, .28f);
+#endif
 				drawMinimap(&hud);
       glDisable(GL_DEPTH_TEST);
       glDepthMask(GL_FALSE);
@@ -223,6 +227,74 @@ void drawCycleShadow(PlayerVisual *pV, Player *p, int lod, int drawTurn) {
   glPopMatrix();
 }
 
+/* Emissive strips are distinct mesh material groups, so the wheel rings stay
+ * bright without flattening the lighting on the graphite body. */
+static void drawObsidianCycleMesh(Mesh *mesh, const PlayerVisual *visual,
+                                  float reflection) {
+  int material;
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_COLOR_MATERIAL);
+  glVertexPointer(3, GL_FLOAT, 0, mesh->pVertices);
+  glNormalPointer(GL_FLOAT, 0, mesh->pNormals);
+  for(material = 0; material < mesh->nMaterials; material++) {
+    Material *m = mesh->pMaterials + material;
+    int light = strcmp(m->name, "Hull") == 0;
+    if(reflection > 0 || light || !gSettingsCache.light_cycles) {
+      const float *color = light ? visual->pColorDiffuse : m->diffuse;
+      glDisable(GL_LIGHTING);
+      glColor4f(color[0],color[1],color[2],reflection > 0 ? reflection : 1);
+    } else {
+      glEnable(GL_LIGHTING);
+      glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,m->ambient);
+      glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,m->diffuse);
+      glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,m->specular);
+      glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,m->shininess);
+    }
+    glDrawElements(GL_TRIANGLES,3*mesh->pnFaces[material],GL_UNSIGNED_SHORT,
+                   mesh->ppIndices[material]);
+    polycount += mesh->pnFaces[material];
+  }
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glDisableClientState(GL_NORMAL_ARRAY);
+  glDisable(GL_LIGHTING);
+}
+
+static void drawObsidianFragments(const PlayerVisual *visual) {
+  const float radius = visual->exp_radius;
+  const float fade = 1.0f - radius / EXP_RADIUS_MAX;
+  const float *color = visual->pColorDiffuse;
+  int i;
+  glDisable(GL_LIGHTING);
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_CULL_FACE);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+  glDepthMask(GL_FALSE);
+  glBegin(GL_TRIANGLES);
+  for(i = 0; i < 48; i++) {
+    float angle = i * 2.399963f;
+    float travel = radius * (.35f + (i%7)*.085f);
+    float x = cosf(angle)*travel;
+    float y = sinf(angle)*travel;
+    float z = .3f + radius*(.45f+(i%5)*.10f) - radius*radius*.012f;
+    float w = (.08f+(i%4)*.055f)*fade;
+    float h = (.35f+(i%6)*.13f)*fade;
+    glColor4f(color[0]+(1-color[0])*.45f,
+              color[1]+(1-color[1])*.45f,
+              color[2]+(1-color[2])*.45f,fade*.9f);
+    glVertex3f(x-w,y,z); glVertex3f(x+w,y,z);
+    glColor4f(color[0],color[1],color[2],0);
+    glVertex3f(x+cosf(angle)*h,y+sinf(angle)*h,z+h);
+  }
+  glEnd();
+  polycount += 48;
+  glDepthMask(GL_TRUE);
+}
+
 void drawCycle(Player *p, PlayerVisual *pV, int lod, int drawTurn) {
   Mesh *cycle = lightcycle[lod];
 
@@ -280,7 +352,10 @@ void drawCycle(Player *p, PlayerVisual *pV, int lod, int drawTurn) {
     }
     
     glEnable(GL_CULL_FACE);
-    drawModel(cycle, TRI_MESH);
+    if(gSettingsCache.obsidian_arena)
+      drawObsidianCycleMesh(cycle, pV, 0);
+    else
+      drawModel(cycle, TRI_MESH);
     glDisable(GL_CULL_FACE);
 
   } else if(pV->exp_radius < EXP_RADIUS_MAX) {
@@ -295,7 +370,10 @@ void drawCycle(Player *p, PlayerVisual *pV, int lod, int drawTurn) {
     
     glTranslatef(0, 0, cycle->BBox.vSize.v[2] / 2);
 
-    drawModelExplosion(cycle, pV->exp_radius);
+    if(gSettingsCache.obsidian_arena)
+      drawObsidianFragments(pV);
+    else
+      drawModelExplosion(cycle, pV->exp_radius);
   }
   glDisable(GL_BLEND);
   glDisable(GL_LIGHTING);
@@ -364,6 +442,60 @@ void drawPlayers(Player *p, PlayerVisual *pV) {
 	}
 }
 
+/* Deliberate graphic reflections, drawn onto the floor before opaque scenery.
+ * They are shortened and dimmed, avoiding a second bright field of obstacles.
+ * No simulation, camera, input, or trail-state data is changed. */
+static void drawObsidianReflections(Player *eye) {
+  int i;
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_LIGHTING);
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  for(i = 0; i < game->players; i++) {
+    Player *p = game->player+i;
+    PlayerVisual *visual = gPlayerVisuals+i;
+    int lod = playerVisible(eye,p);
+    if(lod >= 0 && visual->exp_radius == 0) {
+      float x,y;
+      getPositionFromData(&x,&y,p->data);
+      glPushMatrix();
+      glScalef(1,1,-.56f);
+      glTranslatef(x,y,lightcycle[lod]->BBox.vSize.v[2]/2);
+      if(gSettingsCache.turn_cycle) doCycleTurnRotation(visual,p);
+      else glRotatef(dirangles[p->data->dir],0,0,1);
+      drawObsidianCycleMesh(lightcycle[lod],visual,.20f);
+      glPopMatrix();
+    }
+    if(p->data->trail_height > 0) {
+      int segment;
+      const float *color = visual->pColorAlpha;
+      glBegin(GL_QUADS);
+      for(segment = 0; segment <= p->data->trailOffset; segment++) {
+        segment2 *s = p->data->trails+segment;
+        float x = s->vStart.v[0], y = s->vStart.v[1];
+        float end_x = x+s->vDirection.v[0], end_y = y+s->vDirection.v[1];
+        if(segment == p->data->trailOffset) {
+          end_x = getSegmentEndX(p->data,0);
+          end_y = getSegmentEndY(p->data,0);
+        }
+        glColor4f(color[0],color[1],color[2],.15f);
+        glVertex3f(x,y,-.02f); glVertex3f(end_x,end_y,-.02f);
+        glColor4f(color[0],color[1],color[2],0);
+        glVertex3f(end_x,end_y,-p->data->trail_height*.7f);
+        glVertex3f(x,y,-p->data->trail_height*.7f);
+        polycount += 2;
+      }
+      glEnd();
+    }
+  }
+  glDisable(GL_BLEND);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+}
+
 void drawCam(Player *p, PlayerVisual* pV) {
   int i;
   float up[3] = { 0, 0, 1 };
@@ -412,12 +544,15 @@ void drawCam(Player *p, PlayerVisual* pV) {
   
   /* glDepthMask(GL_FALSE); */
 
+  if(gSettingsCache.obsidian_arena && gSettingsCache.show_floor_texture)
+    drawObsidianReflections(p);
+
   /* shadows on the floor: cycle, recognizer, trails */
-  if (gSettingsCache.show_recognizer) {
+  if (gSettingsCache.show_recognizer && !gSettingsCache.obsidian_arena) {
     drawRecognizerShadow();
   }
 
-  for(i = 0; i < game->players; i++) {
+  for(i = 0; !gSettingsCache.obsidian_arena && i < game->players; i++) {
     int lod = playerVisible(p, game->player + i);
 		if (lod >= 0) {
 			int drawTurn = 1;
@@ -433,7 +568,7 @@ void drawCam(Player *p, PlayerVisual* pV) {
   glDepthMask(GL_TRUE);
   glEnable(GL_DEPTH_TEST);
 
-  if (gSettingsCache.show_recognizer &&
+  if (gSettingsCache.show_recognizer && !gSettingsCache.obsidian_arena &&
       p->data->speed != SPEED_GONE) {
     drawRecognizer();
   }

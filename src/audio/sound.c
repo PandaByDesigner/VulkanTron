@@ -25,10 +25,18 @@ static char *game_fx_names[] = {
 void Sound_loadFX(void) {
   int i;
   char *path;
+  const int obsidian = getVideoSettingi("obsidian_arena");
 
 
   for(i = 0; i < NUM_GAME_FX; i++) {
-    path = getPath(PATH_DATA, game_fx_names[i]);
+    path = NULL;
+    if(obsidian) {
+      char name[96];
+      snprintf(name, sizeof(name), "obsidian/%s", game_fx_names[i]);
+      path = getPath(PATH_DATA, name);
+    }
+    if(path == NULL)
+      path = getPath(PATH_DATA, game_fx_names[i]);
     if(path) {
       Audio_LoadSample(path, i);
       free(path);
@@ -36,6 +44,13 @@ void Sound_loadFX(void) {
       fprintf(stderr, "[error] can't load sound fx file %s\n",
 	     game_fx_names[i]);
       exit(1); // FIXME: handle missing fx somewhere else
+    }
+  }
+  if(obsidian) {
+    path = getPath(PATH_DATA, "obsidian/game_boost.wav");
+    if(path != NULL) {
+      Audio_LoadSample(path, NUM_GAME_FX);
+      free(path);
     }
   }
 }
@@ -102,10 +117,10 @@ static int musicExtensionSupported(const char *name) {
   char extension[8];
   size_t length, i;
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
-  static const char *const supported[] = { "it" };
+  static const char *const supported[] = { "it", "wav" };
 #else
   /* Keep SDL_sound's legacy decoder families selectable. Native SDL2/3 uses
-     the shipped Impulse Tracker decoder; broad format support is deferred. */
+     the shipped Impulse Tracker decoder plus recorded PCM16 WAV music. */
   static const char *const supported[] = {
     "it", "mod", "xm", "s3m", "669", "amf", "dsm", "far", "gdm", "imf",
     "m15", "med", "mtm", "okt", "stm", "stx", "ult", "uni",

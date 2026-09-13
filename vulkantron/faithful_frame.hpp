@@ -73,7 +73,13 @@ struct ClearCommand {
     bool scissor_test = false;
     std::array<int,4> scissor = {0,0,1,1};
 };
-using FaithfulCommand = std::variant<ClearCommand,DrawBatch>;
+// Applied between a single arena view and its HUD. Coordinates use the same
+// bottom-left framebuffer pixels as DrawState; each view samples only itself.
+struct BloomCommand {
+    std::array<int,4> viewport;
+    float strength;
+};
+using FaithfulCommand = std::variant<ClearCommand,DrawBatch,BloomCommand>;
 struct FaithfulFrame {
     std::vector<FaithfulCommand> commands;
     // Full live registry, cheap immutable snapshots. Draws also retain a version

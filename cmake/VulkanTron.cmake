@@ -7,13 +7,13 @@ if(NOT GLTRON_SDL_BACKEND STREQUAL "SDL3")
   return()
 endif()
 
-set(VULKANTRON_VERSION "0.2.0")
+set(VULKANTRON_VERSION "0.3.0")
 find_package(Vulkan 1.3 REQUIRED)
 find_program(VULKANTRON_GLSLC glslc REQUIRED)
 find_program(VULKANTRON_SPIRV_VAL spirv-val REQUIRED)
 set(VULKANTRON_SHADER_DIR "${PROJECT_BINARY_DIR}/bin/vulkantron-shaders")
 set(VULKANTRON_SHADER_OUTPUTS)
-foreach(shader_name scene.vert scene.frag faithful.vert faithful.frag)
+foreach(shader_name scene.vert scene.frag faithful.vert faithful.frag bloom.vert bloom.frag)
   set(shader "${PROJECT_SOURCE_DIR}/vulkantron/shaders/${shader_name}")
   set(output "${VULKANTRON_SHADER_DIR}/${shader_name}.spv")
   add_custom_command(OUTPUT "${output}"
@@ -126,6 +126,10 @@ target_link_libraries(vulkantron PRIVATE vulkantron_game gltron_lua
 set_target_properties(vulkantron PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 
 if(GLTRON_BUILD_NATIVE_TESTS OR GLTRON_ENABLE_GRAPHICS_TESTS)
+  add_executable(vulkantron-bloom-native-test tests/vulkantron_bloom_native.cpp)
+  set_target_properties(vulkantron-bloom-native-test PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+  target_link_libraries(vulkantron-bloom-native-test PRIVATE
+    vulkantron_faithful_renderer vulkantron_options PNG::PNG)
   add_executable(vulkantron-faithful-smoke tests/vulkantron_faithful_smoke.c)
   target_link_libraries(vulkantron-faithful-smoke PRIVATE vulkantron_game gltron_lua
     vulkantron_faithful_renderer vulkantron_options PNG::PNG ${GLTRON_AUDIO_LIBRARIES})

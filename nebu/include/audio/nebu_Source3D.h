@@ -22,6 +22,7 @@ namespace Sound {
       _velocity = Vector3(0,0,0);
 
       _position = 0;
+      _useSampleVolume = false;
     };
     Vector3 _location;
     Vector3 _velocity;
@@ -29,6 +30,9 @@ namespace Sound {
 
     virtual int Mix(Uint8 *data, int len);
     virtual void GetModifiers(float &fPan, float &fVolume, float &fShift);
+    /* The classic spatial mixer ignores sample gain. New presentations can
+       opt in without changing the reference PCM or its distance cutoff. */
+    void SetSampleVolumeEnabled(bool enabled) { _useSampleVolume = enabled; }
     //  protected:
     int _position;
 
@@ -38,7 +42,9 @@ namespace Sound {
       _velocity = Vector3(0,0,0);
 
       _position = 0;
+      _useSampleVolume = false;
     };
+    bool _useSampleVolume;
   };
 }
 

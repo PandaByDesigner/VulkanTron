@@ -13,6 +13,7 @@ void Audio_LoadPlayers(void);
 void Audio_Init(void);
 void Audio_Start(void);
 void Audio_Quit(void);
+void Audio_ReloadPresentation(void);
 
 void Audio_LoadPlayers(void);
 void Audio_LoadSample(char *name, int number);

@@ -20,7 +20,8 @@ void loadDefaultMaterial(Material *pMaterial) {
   pMaterial->map_diffuse = NULL;
 }
 
-void readMaterialLibraryFromFile(char *filename, Mesh *pMesh) {
+static void readMaterialLibraryFromPath(char *filename, Mesh *pMesh,
+                                        const char *mesh_filename) {
   Material *pMaterials; 
   int iMaterial;
 
@@ -31,7 +32,21 @@ void readMaterialLibraryFromFile(char *filename, Mesh *pMesh) {
 
   int i;
 
-  path = getPath(PATH_DATA, filename);
+  /* OBJ material libraries are relative to their mesh. This lets selectable
+   * artpacks own their models and materials without replacing shared data. */
+  path = NULL;
+  if(mesh_filename != NULL) {
+    const char *slash = strrchr(mesh_filename, '/');
+    if(slash != NULL) {
+      size_t directory_size = (size_t)(slash - mesh_filename) + 1;
+      path = malloc(directory_size + strlen(filename) + 1);
+      if(path != NULL) {
+        memcpy(path, mesh_filename, directory_size);
+        strcpy(path + directory_size, filename);
+      }
+    }
+  }
+  if(path == NULL) path = getPath(PATH_DATA, filename);
   if(path == NULL) {
     fprintf(stderr, "** could not optain path to file '%s'\n", filename);
     return;
@@ -92,15 +107,16 @@ void readMaterialLibraryFromFile(char *filename, Mesh *pMesh) {
   }
 
   free(pMaterials);
+  gzclose(f);
 }
 
-void readMaterialLibrary(char *buf, Mesh *pMesh) {
+void readMaterialLibrary(char *buf, Mesh *pMesh, const char *mesh_filename) {
   char filename[BUF_SIZE];
   if(sscanf(buf, " mtllib %s ", filename) != 1) {
     fprintf(stderr, "*** failing parsing filename from %s\n", buf);
     return;
   }
-  readMaterialLibraryFromFile(filename, pMesh);
+  readMaterialLibraryFromPath(filename, pMesh, mesh_filename);
 }
 
 void setMaterial(char *buf, Mesh *pMesh, int *iGroup) {
@@ -152,4 +168,3 @@ void copyMaterialColors(Material *pIn, Material *pOut) {
   pOut->shininess = pIn->shininess;
 }
 */
-

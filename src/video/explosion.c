@@ -39,6 +39,8 @@ static void drawShockwaves(float radius) {
   int waves;
   
   glColor3f(1,0,0);
+  if(gSettingsCache.obsidian_arena)
+    glColor3f(.25f,.78f,1);
 
   for(waves = 0; waves < NUM_SHOCKWAVES; waves++) {
     if (radius > SHOCKWAVE_MIN_RADIUS && radius < SHOCKWAVE_MAX_RADIUS) {

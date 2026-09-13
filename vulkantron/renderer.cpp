@@ -187,6 +187,10 @@ struct Renderer::Impl {
     VkFormat faithful_color_format = VK_FORMAT_UNDEFINED, faithful_depth_format = VK_FORMAT_UNDEFINED;
     bool faithful_mode = false, faithful_used = false;
     std::vector<Buffer> faithful_uploads;
+    FaithfulTexture bloom_source;
+    VkPipeline bloom_pipeline = VK_NULL_HANDLE;
+    VkShaderModule bloom_vertex_shader = VK_NULL_HANDLE, bloom_fragment_shader = VK_NULL_HANDLE;
+    bool bloom_used = false;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debug(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
             VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT* data,

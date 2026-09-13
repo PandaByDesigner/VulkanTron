@@ -3,7 +3,7 @@ install(DIRECTORY art data music scripts DESTINATION "${CMAKE_INSTALL_DATADIR}/g
   FILES_MATCHING
   PATTERN "*.png" PATTERN "*.lua" PATTERN "*.wav" PATTERN "*.ogg"
   PATTERN "*.obj" PATTERN "*.mtl" PATTERN "*.ftx" PATTERN "*.fbmp"
-  PATTERN "*.txt" PATTERN "*.md" PATTERN "*.it"
+  PATTERN "*.txt" PATTERN "*.md" PATTERN "*.it" PATTERN "*.json"
   PATTERN "COPYING" PATTERN "LICENSE" PATTERN "NOTICE")
 if(TARGET vulkantron)
   configure_file(packaging/vulkantron-build-info.txt.in vulkantron-build-info.txt @ONLY)
@@ -23,7 +23,7 @@ install(FILES packaging/LUA-COPYRIGHT.txt DESTINATION "${CMAKE_INSTALL_DATADIR}/
 install(FILES README README.md COPYING
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron")
 install(DIRECTORY docs DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron"
-  FILES_MATCHING PATTERN "*.md")
+  FILES_MATCHING PATTERN "*.md" PATTERN "*.png")
 install(FILES packaging/LUA-COPYRIGHT.txt
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gltron/packaging")
 install(DIRECTORY packaging/icons
@@ -67,7 +67,7 @@ set(CPACK_SOURCE_IGNORE_FILES
   "[.]tar[.]gz$" "[.]tar[.]gz[.]sha256$" "/gltron$")
 if(TARGET vulkantron)
   set(CPACK_PACKAGE_NAME vulkantron)
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Faithful GLTron gameplay with a direct Vulkan renderer")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Obsidian lightcycle arena with original music and direct Vulkan rendering")
   set(CPACK_PACKAGE_VERSION "${VULKANTRON_VERSION}")
   set(CPACK_PACKAGE_FILE_NAME "vulkantron-${VULKANTRON_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
   if(NOT GLTRON_ENABLE_AUDIO)

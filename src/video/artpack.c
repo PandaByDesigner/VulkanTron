@@ -103,6 +103,8 @@ void loadArt(void) {
     free(path);
   }
 
+  reloadLightcycleModels(getVideoSettingi("obsidian_arena"));
+
   initTexture(gScreen);
   initFonts();
 }

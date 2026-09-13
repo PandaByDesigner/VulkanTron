@@ -61,6 +61,7 @@ extern TextureInfo textures[];
 extern void initArtpacks(void);
 extern void loadArt(void);
 extern void reloadArt(void);
+extern void reloadLightcycleModels(int obsidian);
 
 /* graphics libs */
 // #include "extgl.h"

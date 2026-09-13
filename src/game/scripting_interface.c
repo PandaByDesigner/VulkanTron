@@ -78,7 +78,17 @@ int c_reloadTrack(lua_State *L) {
 }
 
 int c_reloadArtpack(lua_State *L) {
+  int previous = getVideoSettingi("obsidian_arena");
   reloadArt();
+  updateSettingsCache();
+  if(previous != getVideoSettingi("obsidian_arena")) {
+    /* Follow the bundled presentation when using its bundled music. A user's
+       separately selected track remains their choice across artpack changes. */
+    scripting_Run("if settings.current_track == 'song_revenge_of_cats.it' or settings.current_track == 'song_obsidian_arena.wav' then "
+                  "if video.settings.obsidian_arena == 1 then settings.current_track = 'song_obsidian_arena.wav' "
+                  "else settings.current_track = 'song_revenge_of_cats.it' end; setupSoundTrack() end");
+    Audio_ReloadPresentation();
+  }
   return 0;
 }
   

@@ -4,6 +4,7 @@ menu_item_active1 = { .5, 1, 0, 1 }
 menu_item_active2 = { 1, 0, 0, 1 }
 
 -- texture settings
+video.settings.obsidian_arena = 0
 video.settings.show_floor_texture = 1
 video.settings.show_wall = 1
 video.settings.show_crash_texture = 1

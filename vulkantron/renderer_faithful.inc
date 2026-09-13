@@ -10,7 +10,17 @@
         if (texture.memory) vkFreeMemory(device, texture.memory, nullptr);
         texture = {};
     }
+    void destroy_bloom() noexcept {
+        if (bloom_pipeline) vkDestroyPipeline(device, bloom_pipeline, nullptr);
+        if (bloom_vertex_shader) vkDestroyShaderModule(device, bloom_vertex_shader, nullptr);
+        if (bloom_fragment_shader) vkDestroyShaderModule(device, bloom_fragment_shader, nullptr);
+        bloom_pipeline = VK_NULL_HANDLE;
+        bloom_vertex_shader = bloom_fragment_shader = VK_NULL_HANDLE;
+        destroy_faithful_texture(bloom_source);
+        bloom_used = false;
+    }
     void destroy_faithful_target() noexcept {
+        destroy_bloom();
         for (auto& item : faithful_pipelines) vkDestroyPipeline(device, item.second, nullptr);
         faithful_pipelines.clear();
         if (faithful_color_view) vkDestroyImageView(device, faithful_color_view, nullptr);
@@ -74,10 +84,10 @@
             auto create = info<VkDescriptorSetLayoutCreateInfo>(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
             create.bindingCount = 1; create.pBindings = &binding;
             require(vkCreateDescriptorSetLayout(device, &create, nullptr, &faithful_set_layout), "Create faithful texture layout");
-            const VkDescriptorPoolSize size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512};
+            const VkDescriptorPoolSize size{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 513};
             auto pool_info = info<VkDescriptorPoolCreateInfo>(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
             pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-            pool_info.maxSets = 512; pool_info.poolSizeCount = 1; pool_info.pPoolSizes = &size;
+            pool_info.maxSets = 513; pool_info.poolSizeCount = 1; pool_info.pPoolSizes = &size;
             require(vkCreateDescriptorPool(device, &pool_info, nullptr, &faithful_descriptor_pool), "Create faithful texture pool");
             const VkPushConstantRange push{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 64};
             auto layout = info<VkPipelineLayoutCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
@@ -103,6 +113,7 @@
                            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, extent.width, extent.height);
         }
     }
+    #include "renderer_bloom.inc"
     static VkCompareOp faithful_compare(std::uint32_t value) {
         if (value < 0x0200 || value > 0x0207) throw std::runtime_error("Unsupported faithful comparison function");
         return static_cast<VkCompareOp>(value - 0x0200);
@@ -371,6 +382,12 @@
             throw std::runtime_error("Faithful frame command/texture limit exceeded");
         std::size_t count = 0;
         for (const auto& entry : frame.commands) {
+            if (const auto* bloom = std::get_if<BloomCommand>(&entry)) {
+                if (bloom->viewport[2] < 0 || bloom->viewport[3] < 0 ||
+                    !std::isfinite(bloom->strength) || bloom->strength < 0 || bloom->strength > 1)
+                    throw std::runtime_error("Invalid arena bloom command");
+                continue;
+            }
             if (const auto* clear = std::get_if<ClearCommand>(&entry)) {
                 for (float value : clear->color) if (!std::isfinite(value))
                     throw std::runtime_error("Nonfinite faithful clear color");
@@ -444,6 +461,8 @@
         for (auto& upload : faithful_uploads) destroy_buffer(upload);
         faithful_uploads.clear();
         prepare_faithful();
+        for (const auto& entry : frame.commands)
+            if (std::holds_alternative<BloomCommand>(entry)) { prepare_bloom(); break; }
         static const std::shared_ptr<const Texture> white = [] {
             auto result = std::make_shared<Texture>();
             result->id = UINT32_MAX; result->revision = UINT64_MAX;
@@ -534,6 +553,10 @@
         }
         std::uint32_t first_vertex = 0;
         for (const auto& entry : frame.commands) {
+            if (const auto* bloom = std::get_if<BloomCommand>(&entry)) {
+                draw_bloom(*bloom, rendering, color, depth);
+                continue;
+            }
             if (const auto* clear = std::get_if<ClearCommand>(&entry)) {
                 const VkRect2D rectangle = clear->scissor_test ? faithful_rectangle(clear->scissor) : VkRect2D{{0,0},extent};
                 if (!rectangle.extent.width || !rectangle.extent.height) continue;

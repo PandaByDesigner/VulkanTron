@@ -181,6 +181,8 @@ namespace Sound {
 								 clen - (_source->_buffersize - _position));
 				}
 
+        if(_useSampleVolume)
+          vol *= _source->GetVolume();
 				fxPan(pan, vol, tmp, clen);
 				// fxshift mixes the data to the stream
 				_position += fxShift(shift, data, tmp, len);

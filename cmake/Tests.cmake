@@ -108,6 +108,23 @@ if(GLTRON_ENABLE_AUDIO)
     ${GLTRON_STRESS_ASSETS})
   set_tests_properties(audio-production-parity audio-source-list-stress PROPERTIES
     TIMEOUT 120 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_AUDIO_DRIVER=dummy")
+  if(UNIX AND NOT GLTRON_SDL_BACKEND STREQUAL "SDL1")
+    add_executable(audio-wav-music-regression tests/audio_wav_music_test.cpp
+      ${GLTRON_AUDIO_TEST_SOURCES})
+    target_link_libraries(audio-wav-music-regression PRIVATE gltron_options ${GLTRON_AUDIO_LIBRARIES})
+    gltron_enable_test_assertions(audio-wav-music-regression)
+    add_test(NAME audio-wav-music-regression COMMAND audio-wav-music-regression)
+    set_tests_properties(audio-wav-music-regression PROPERTIES TIMEOUT 60
+      ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_AUDIO_DRIVER=dummy")
+    add_executable(audio-presentation-regression tests/audio_presentation_test.cpp
+      ${GLTRON_AUDIO_TEST_SOURCES})
+    target_link_libraries(audio-presentation-regression PRIVATE gltron_options ${GLTRON_AUDIO_LIBRARIES})
+    gltron_enable_test_assertions(audio-presentation-regression)
+    add_test(NAME audio-presentation-regression COMMAND audio-presentation-regression
+      "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(audio-presentation-regression PROPERTIES TIMEOUT 60
+      ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_AUDIO_DRIVER=dummy")
+  endif()
 endif()
 
 if(GLTRON_ENABLE_REFERENCE_TESTS)

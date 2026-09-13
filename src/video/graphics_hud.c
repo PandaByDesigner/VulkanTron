@@ -90,6 +90,8 @@ void drawScore(Player *p, const HudCanvas *canvas) {
     return;
   rasonlyHud(canvas);
   glColor4f(1.0, 1.0, 0.2f, 1.0);
+  if(gSettingsCache.obsidian_arena)
+    glColor4f(.68f, .90f, .97f, 1);
   drawText(gameFtx, placement.x, placement.y, placement.size, tmp);
 }
 

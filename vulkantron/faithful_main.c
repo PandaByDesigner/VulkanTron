@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
                    "  -s            Mute music and effects\n"
                    "  -F / -c       Hide FPS / AI labels\n"
                    "  --validation  Enable Vulkan validation layers\n"
+                   "  --obsidian    Select the Obsidian arena and original soundtrack\n"
                    "  --version     Print build information\n"
                    "  --help        Show this help\n\n"
                    "Use the original menus to configure controls, audio, artpacks,\n"
@@ -38,7 +39,12 @@ int main(int argc, char **argv) {
             free(options);
             return 0;
         }
-        if(strcmp(argv[i], "--validation") == 0) {
+        if(strcmp(argv[i], "--obsidian") == 0) {
+            if(SDL_setenv_unsafe("VULKANTRON_PRESENTATION", "obsidian", 1) != 0) {
+                free(options);
+                return EXIT_FAILURE;
+            }
+        } else if(strcmp(argv[i], "--validation") == 0) {
             if(!SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "VULKANTRON_VALIDATION", "1", true)) {
                 fprintf(stderr, "Cannot enable validation: %s\n", SDL_GetError());
                 free(options);

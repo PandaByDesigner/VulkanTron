@@ -21,6 +21,12 @@ namespace Sound {
 
   protected:
     virtual void Reset(void) {
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+      if(_wav_buffer != NULL) {
+        _wav_position = 0;
+        return;
+      }
+#endif
       if(HasSample()) {
 				CleanUp();
 				if(!CreateSample())
@@ -38,6 +44,12 @@ namespace Sound {
 #if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
     MODULE* _module;
     Uint8* _sample_buffer;
+    /* Recorded music is loaded/conformed before the source is published.
+       The real-time mixer only reads PCM; loops never reopen the file. */
+    Uint8* _wav_buffer;
+    int _wav_size;
+    int _wav_position;
+    int LoadWav(void);
 #else
     Sound_Sample* _sample;
 #endif

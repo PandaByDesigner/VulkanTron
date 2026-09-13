@@ -22,8 +22,8 @@ Compile-time GL types and constants come from SDL's headers.
    and converts the original primitive types into Vulkan draw batches. Texture
    versions remain alive for every batch that references them.
 3. `vulkantron/faithful_frame.hpp` defines the recorded frame. It contains draw
-   batches and ordered clear operations, including the depth and stencil state
-   needed by the original shadows.
+   batches, ordered clear operations, and optional per-viewport bloom commands,
+   including the depth and stencil state needed by the original shadows.
 4. `vulkantron/renderer.cpp` and its private implementation own Vulkan memory,
    uploads, descriptors, pipelines, depth/stencil attachments, command buffers,
    synchronization, swapchain images, presentation, and GPU readback. The
@@ -64,6 +64,18 @@ metrics and documents the limited tolerance for these three fixtures.
 
 ## Lifetime and failure reporting
 
+Obsidian records bloom after each world's drawing and before its minimap/HUD.
+`renderer_bloom.inc` pauses rendering, copies the viewport into a sampled
+image, then resumes with attachment contents preserved and adds a 25-tap
+bright-pass blur. Both sampling and rasterization stay inside that viewport.
+The classic artpacks never issue this command. This is an artistic UNORM
+bright-pixel effect, not an HDR lighting pipeline.
+
+Bloom images and descriptors follow frame-fence/idle ownership through resize
+and shutdown. Failed lazy creation destroys all partial resources before
+propagating the error; the native bloom test exercises repeated missing-shader
+failures followed by a successful retry.
+
 Renderer shutdown completes before reporting the final validation count and
 before SDL destroys the window. Both a graphics-menu context restart and a
 normal application exit use that boundary. Shader and texture failures must
@@ -88,5 +100,5 @@ performance claim. Profile it before moving work into shaders or introducing
 parallel recording. Preserve the same reference scenes when optimizing.
 
 This document describes the implementation boundary. Actual completed checks
-and any remaining limitations belong in `VULKANTRON_VERIFICATION.md`; this
-architecture document is not evidence of a completed faithful port.
+and remaining limitations belong in `VULKANTRON_VERIFICATION.md` for the
+faithful port and `OBSIDIAN_VERIFICATION.md` for the 0.3.0 presentation.

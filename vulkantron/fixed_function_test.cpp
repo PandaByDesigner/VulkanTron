@@ -348,6 +348,26 @@ void command_budget() {
     require(rejected, "Resource exhaustion silently returned an incomplete frame");
     vt::faithful_reset();
 }
+void arena_bloom() {
+    vt::faithful_reset();
+    glClear(GL_COLOR_BUFFER_BIT);
+    VT_BloomViewport(11, 21, 400, 300, 0.28f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    const auto& commands = vt::faithful_frame().commands;
+    require(commands.size() == 3 && std::holds_alternative<vt::ClearCommand>(commands[0]) &&
+            std::holds_alternative<vt::BloomCommand>(commands[1]) &&
+            std::holds_alternative<vt::ClearCommand>(commands[2]), "Bloom moved across world/HUD boundary");
+    const auto& bloom = std::get<vt::BloomCommand>(commands[1]);
+    require(bloom.viewport == std::array<int,4>{11,21,400,300} && bloom.strength == 0.28f,
+            "Bloom lost its local player viewport");
+    VT_BloomViewport(0,0,0,300,0.2f);
+    require(vt::faithful_frame().commands.size() == 3, "Empty bloom view was recorded");
+    VT_BloomViewport(0,0,-1,300,0.2f);
+    require(glGetError() == GL_INVALID_VALUE, "Invalid bloom bounds were accepted");
+    vt::faithful_end_frame();
+    require(vt::faithful_frame().commands.empty(), "Bloom survived frame completion");
+    vt::faithful_reset();
+}
 void errors() {
     vt::faithful_reset();
     glPopMatrix();
@@ -377,6 +397,7 @@ int main() {
         arrays_and_state();
         textures_and_readback();
         command_budget();
+        arena_bloom();
         errors();
         std::cout << "VT_FIXED_FUNCTION_TEST_OK matrices lighting materials clipping primitives arrays "
                      "textures readback errors\n";

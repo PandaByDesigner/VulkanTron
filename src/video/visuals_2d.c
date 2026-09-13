@@ -55,6 +55,8 @@ void draw2D( Visual *d ) {
 
 			glBegin(GL_QUADS);
 			glColor4f(0.7f, 0.7f, 0.7f, 0.3f);
+      if(gSettingsCache.obsidian_arena)
+        glColor4f(.016f, .033f, .050f, .78f);
 			glVertex2f(0, 0);
 			glVertex2f(w, 0);
 			glVertex2f(w, h);
@@ -69,6 +71,8 @@ void draw2D( Visual *d ) {
 				float w = game2->grid.width;
 				float h = game2->grid.height;
 				glColor3f(1, 1, 1);
+        if(gSettingsCache.obsidian_arena)
+          glColor4f(.15f, .57f, .68f, .60f);
 				glBegin(GL_LINE_LOOP);
 				glVertex3f( 0, 0, 0 );
 				glVertex3f( w, 0, 0 );
@@ -103,10 +107,22 @@ void draw2D( Visual *d ) {
           glColor3fv(pV->pColorAlpha);
         }
         
-        glPointSize(2);
-				glBegin(GL_POINTS);
-				glVertex2f( x, y );
-				glEnd();
+        if(gSettingsCache.obsidian_arena) {
+          /* Geometry gives every player a readable heading without depending
+           * on wide-point GPU support. Radius is measured in screen pixels. */
+          float r = width / d->vp_w * 3.5f;
+          float dx = dirsX[p->data->dir], dy = dirsY[p->data->dir];
+          glBegin(GL_TRIANGLES);
+          glVertex2f(x+dx*r, y+dy*r);
+          glVertex2f(x-dx*r*.65f-dy*r*.65f, y-dy*r*.65f+dx*r*.65f);
+          glVertex2f(x-dx*r*.65f+dy*r*.65f, y-dy*r*.65f-dx*r*.65f);
+          glEnd();
+        } else {
+          glPointSize(2);
+          glBegin(GL_POINTS);
+          glVertex2f( x, y );
+          glEnd();
+        }
 
 				glBegin(GL_LINES);
 				for(trail = p->data->trails; trail != p->data->trails + p->data->trailOffset; trail++)

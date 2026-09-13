@@ -15,6 +15,10 @@ void trailStatesNormal(Player *pPlayer, int texture) {
 	// glDisable(GL_LIGHTING);
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+	if(gSettingsCache.obsidian_arena) {
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glDisable(GL_LIGHTING);
+	}
 
 	{ 
 		float black[] = { 0, 0, 0, 1 };

@@ -79,7 +79,7 @@ settings.joy_threshold = 0.10
 
 -- audio
 settings.tracks = { }
-settings.current_track = "revenge_of_cats.it"
+settings.current_track = "song_revenge_of_cats.it"
 -- music & fx settings
 settings.playEffects = 1
 settings.playMusic = 1
@@ -123,3 +123,4 @@ settings.keys = {
 -- some values are set in artpack.lua
 video = {} 
 video.settings = {}
+video.settings.obsidian_arena = 0

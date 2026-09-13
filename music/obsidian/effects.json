@@ -1,0 +1,69 @@
+{
+  "method": "Deterministic mathematical synthesis, no sampled audio",
+  "generator": "tools/create_obsidian_audio.py effects",
+  "subjective_listening_review": false,
+  "effects": [
+    {
+      "file": "data/obsidian/game_engine.wav",
+      "sha256": "0773572d00dc0d6b789db6e84ddff0673acc656379000388a0be6a22d75f1777",
+      "sample_rate": 22050,
+      "channels": 1,
+      "frames": 44100,
+      "duration_seconds": 2.0,
+      "peak_dbfs": -9.0,
+      "rms_dbfs": -15.372,
+      "dc_offset": 7.196889172335601e-08,
+      "clipped_samples": 0,
+      "format": "signed 16-bit little-endian PCM WAV",
+      "loop_seam_delta": 0.013946533203125,
+      "interior_delta_p99": 0.0150146484375,
+      "loop_seam_below_interior_p99": true,
+      "design": "2-second periodic electric drive: FM harmonics, low pulse, soft air; pitch follows game speed."
+    },
+    {
+      "file": "data/obsidian/game_recognizer.wav",
+      "sha256": "c1b7c34cd202c4cc6e8021f43127eb07c769632475aef8ed2e7708fa018d26cb",
+      "sample_rate": 22050,
+      "channels": 1,
+      "frames": 88200,
+      "duration_seconds": 4.0,
+      "peak_dbfs": -12.0,
+      "rms_dbfs": -19.411,
+      "dc_offset": 4.11745101686508e-08,
+      "clipped_samples": 0,
+      "format": "signed 16-bit little-endian PCM WAV",
+      "loop_seam_delta": 0.004364013671875,
+      "interior_delta_p99": 0.005157470703125,
+      "loop_seam_below_interior_p99": true,
+      "design": "4-second periodic distant vehicle/arena hum, low and restrained."
+    },
+    {
+      "file": "data/obsidian/game_boost.wav",
+      "sha256": "fde13386b92987d5efcf4bc84c6d822e3f5f34a8f1956356f616ebd467f9da56",
+      "sample_rate": 22050,
+      "channels": 1,
+      "frames": 13671,
+      "duration_seconds": 0.62,
+      "peak_dbfs": -6.0,
+      "rms_dbfs": -23.691,
+      "dc_offset": -2.5919069534735937e-05,
+      "clipped_samples": 0,
+      "format": "signed 16-bit little-endian PCM WAV",
+      "design": "0.62-second rising electrical thrust one-shot with airy transient; zero-ended envelope."
+    },
+    {
+      "file": "data/obsidian/game_crash.wav",
+      "sha256": "972cf0a810aa5385ac01bb5cd5f583148de2d8499a4e13fec4cfe01a2db49027",
+      "sample_rate": 22050,
+      "channels": 1,
+      "frames": 27562,
+      "duration_seconds": 1.2499773242630385,
+      "peak_dbfs": -3.5,
+      "rms_dbfs": -24.544,
+      "dc_offset": -4.3846458665916843e-07,
+      "clipped_samples": 0,
+      "format": "signed 16-bit little-endian PCM WAV",
+      "design": "1.25-second impact: descending bass strike, brittle synthesized shards, short debris tail."
+    }
+  ]
+}

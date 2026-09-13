@@ -244,6 +244,7 @@ void setSettingi(const char *name, int i) {
 }
 
 void updateSettingsCache(void) {
+  gSettingsCache.obsidian_arena = getVideoSettingi("obsidian_arena");
   /* cache lua settings that don't change during play */
   gSettingsCache.use_stencil = getSettingi("use_stencil");
   gSettingsCache.show_scores = getSettingi("show_scores");

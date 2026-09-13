@@ -11,6 +11,7 @@ extern "C" {
   void Audio_Init(void) {}
   void Audio_Start(void) {}
   void Audio_Quit(void) {}
+  void Audio_ReloadPresentation(void) {}
   void Audio_LoadSample(char *, int) {}
   void Audio_LoadMusic(char *) {}
   void Audio_PlayMusic(void) {}
@@ -27,6 +28,7 @@ extern "C" {
 
 extern "C" {
 #include "game/game.h"
+#include "audio/audio.h"
 #include "video/video.h" // 3d sound engine needs to know the camera's location!
 }
 #include "audio/nebu_AudioSDL.h"
@@ -39,7 +41,13 @@ static Sound::SourceMusic *music = NULL;
 static Sound::SourceSample *sample_crash = NULL;
 static Sound::SourceSample *sample_engine = NULL;
 static Sound::SourceSample *sample_recognizer = NULL;
+static Sound::SourceSample *sample_boost = NULL;
+static int last_boost_enabled = 0;
 static int decoder_ready = 0;
+/* Source names are borrowed debug labels; Source does not free them. */
+static char music_name[] = "music";
+static char recognizer_name[] = "recognizer";
+static char player_names[PLAYERS][32];
 
 static Sound::Source3D *players[PLAYERS];
 static Sound::Source3D *recognizerEngine;
@@ -61,6 +69,19 @@ namespace {
     ScopedAudioLock(const ScopedAudioLock&);
     ScopedAudioLock& operator=(const ScopedAudioLock&);
     Sound::System *_system;
+  };
+
+  class BoostCue : public Sound::SourceCopy {
+  public:
+    BoostCue(Sound::System *system, Sound::SourceSample *sample)
+      : Sound::SourceCopy(sample) { _system = system; }
+
+    virtual void Idle(void) {
+      /* Muted effects are skipped by the classic callback. End this transient
+         cue instead of retaining a paused thrust tail for a later unmute. */
+      ScopedAudioLock lock(_system);
+      if(!gSettingsCache.playEffects) Pause();
+    }
   };
 }
 
@@ -100,6 +121,7 @@ extern "C" {
 		for(i = 0; i < game->players; i++)
 			if( game->player[i].data->speed > 0)
 				players[i]->Start();
+    last_boost_enabled = 0;
     sample_engine->Start();
     if (gSettingsCache.show_recognizer)
       sample_recognizer->Start();
@@ -114,11 +136,16 @@ extern "C" {
   }
 
   void Audio_Idle(void) {
+    int play_boost = 0;
     {
       ScopedAudioLock lock(sound);
     // The callback reads all state updated in this block.
     // Iterate over all the players and update the engines.
     if(sample_engine->IsPlaying()) {
+      const int boosting = game->player[0].data->boost_enabled && game->player[0].data->speed > 0;
+      play_boost = gSettingsCache.obsidian_arena && gSettingsCache.playEffects &&
+        boosting && !last_boost_enabled && sample_boost != NULL;
+      last_boost_enabled = boosting;
       for(int i = 0; i < PLAYERS; i++) {
 				Player *p;
 				Sound::Source3D *p3d;
@@ -195,6 +222,11 @@ extern "C" {
 
     sound->SetMixMusic(gSettingsCache.playMusic);
     sound->SetMixFX(gSettingsCache.playEffects);
+    }
+    if(play_boost) {
+      Sound::SourceCopy *copy = new BoostCue(sound, sample_boost);
+      copy->Start(); copy->SetRemovable(); copy->SetType(Sound::eSoundFX);
+      sound->AddSource(copy);
     }
     sound->Idle();
   }
@@ -287,13 +319,38 @@ extern "C" {
     delete sample_recognizer;
     sample_recognizer = NULL;
 
+    delete sample_boost;
+    sample_boost = NULL;
+    last_boost_enabled = 0;
+
     if(decoder_ready)
       Sound::QuitDecoder();
     decoder_ready = 0;
   }
 
+  void Audio_ReloadPresentation(void) {
+    if(sound == NULL) return;
+    int engine_running, music_running;
+    {
+      ScopedAudioLock lock(sound);
+      engine_running = sample_engine != NULL && sample_engine->IsPlaying();
+      music_running = music != NULL && music->IsPlaying();
+    }
+    Audio_Quit();
+    Sound_setup();
+    if(!music_running) Audio_StopMusic();
+    if(engine_running) Audio_EnableEngine();
+  }
+
   void Audio_LoadMusic(char *name) {
-    if(!decoder_ready) {
+    if(name == NULL || sound == NULL) return;
+#if defined(GLTRON_SDL2_AUDIO) || defined(GLTRON_SDL3_AUDIO)
+    const char *extension = strrchr(name, '.');
+    int recorded = extension != NULL && SDL_strcasecmp(extension, ".wav") == 0;
+#else
+    int recorded = 0;
+#endif
+    if(!decoder_ready && !recorded) {
       fprintf(stderr, "[error] cannot load music without a decoder\n");
       return;
     }
@@ -306,9 +363,7 @@ extern "C" {
     new_music->SetLoop(255);
     new_music->SetType(Sound::eSoundMusic);
 
-    char *sname = new char[32];
-    sprintf(sname, "music");
-    new_music->SetName(sname);
+    new_music->SetName(music_name);
 
     if(music != NULL) {
       ScopedAudioLock lock(sound);
@@ -341,6 +396,7 @@ extern "C" {
     ScopedAudioLock lock(sound);
     sample_engine->SetVolume(volume);
     sample_crash->SetVolume(volume);
+    if(sample_boost) sample_boost->SetVolume(volume);
     if(volume > 0.8f)
       sample_recognizer->SetVolume(volume);
     else 
@@ -358,34 +414,26 @@ extern "C" {
   }
  
   void Audio_LoadPlayers(void) {
+    const bool use_sample_volume = getVideoSettingi("obsidian_arena") != 0;
     for(int i = 0; i < PLAYERS; i++) {
       if(i != 0) {
 				players[i] = new Sound::Source3D(sound, sample_engine);
-				players[i]->SetType(Sound::eSoundFX);
-				sound->AddSource(players[i]);
-
-				char *name = new char[32];
-				sprintf(name, "player %d", i);
-				players[i]->SetName(name);
-
       } else {
 				players[i] = new Sound::SourceEngine(sound, sample_engine);
-				players[i]->SetType(Sound::eSoundFX);
-				sound->AddSource(players[i]);
-
-				char *name = new char[32];
-				sprintf(name, "player %d", i);
-				players[i]->SetName(name);
       }
+      snprintf(player_names[i], sizeof(player_names[i]), "player %d", i);
+      players[i]->SetName(player_names[i]);
+      players[i]->SetSampleVolumeEnabled(use_sample_volume);
+      players[i]->SetType(Sound::eSoundFX);
+      sound->AddSource(players[i]);
     }
     recognizerEngine = new Sound::Source3D(sound, sample_recognizer);
+    recognizerEngine->SetSampleVolumeEnabled(use_sample_volume);
     recognizerEngine->SetType(Sound::eSoundFX);
     recognizerEngine->Start();
     sound->AddSource(recognizerEngine);
 
-    char *name = new char[32];
-    sprintf(name, "recognizer");
-    recognizerEngine->SetName(name);
+    recognizerEngine->SetName(recognizer_name);
 
   }
 
@@ -412,6 +460,16 @@ extern "C" {
       sample_recognizer = new Sound::SourceSample(sound);
       if(can_load)
         sample_recognizer->Load(name);
+      break;
+    case 3:
+      sample_boost = new Sound::SourceSample(sound);
+      if(can_load) sample_boost->Load(name);
+      if(sample_boost->_buffer == NULL ||
+         sample_boost->_buffersize <= Sound::System::kMixChunkBytes) {
+        fprintf(stderr, "[sound] optional boost sample is unavailable or too short: %s\n", name);
+        delete sample_boost;
+        sample_boost = NULL;
+      }
       break;
     default:
       /* programmer error, but non-critical */
