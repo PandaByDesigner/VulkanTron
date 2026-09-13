@@ -1,7 +1,9 @@
 #ifndef NEBU_RENDERER_GL_H
 #define NEBU_RENDERER_GL_H
 
-#ifdef GLTRON_USE_SDL3
+#ifdef GLTRON_DIRECT_VULKAN
+#include "fixed_function.h"
+#elif defined(GLTRON_USE_SDL3)
 #include <SDL3/SDL_opengl.h>
 #else
 #include "SDL_opengl.h"

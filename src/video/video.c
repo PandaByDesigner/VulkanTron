@@ -33,13 +33,25 @@ int initWindow(void) {
 
   SystemInitDisplayMode(flags, fullscreen);
 
-  win_id = SystemCreateWindow("GLTron Faithful Remaster");
+  win_id = SystemCreateWindow(
+#ifdef GLTRON_DIRECT_VULKAN
+    "VulkanTron"
+#else
+    "GLTron Faithful Remaster"
+#endif
+  );
 
   if (win_id < 0) { 
     if( getSettingi("use_stencil") ) {
       flags &= ~SYSTEM_STENCIL;
       SystemInitDisplayMode(flags, fullscreen);
-      win_id = SystemCreateWindow("GLTron Faithful Remaster");
+      win_id = SystemCreateWindow(
+#ifdef GLTRON_DIRECT_VULKAN
+    "VulkanTron"
+#else
+    "GLTron Faithful Remaster"
+#endif
+  );
       if(win_id >= 0) {
 	setSettingi("use_stencil", 0);
 	goto SKIP;

@@ -9,6 +9,9 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef GLTRON_DIRECT_VULKAN
+#include "faithful_platform.h"
+#endif
 
 Callbacks *current = 0;
 static int return_code = -1;
@@ -30,6 +33,12 @@ void SystemExit() {
 
   SystemInputShutdown();
   fprintf(stderr, "[system] shutting down SDL now\n");
+#ifdef GLTRON_DIRECT_VULKAN
+  if(!VT_FaithfulShutdown()) {
+    SDL_Quit();
+    exit(EXIT_FAILURE);
+  }
+#endif
   SDL_Quit();
   fprintf(stderr, "[system] exiting application\n");
   exit(EXIT_SUCCESS);

@@ -1,4 +1,5 @@
 #include "renderer.hpp"
+#include "faithful_frame.hpp"
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -13,12 +14,14 @@
 #include <exception>
 #include <fstream>
 #include <limits>
+#include <map>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
 namespace vt {
 namespace {
-constexpr std::size_t max_vertices = 1024 * 1024;
+constexpr std::size_t max_vertices = 4 * 1024 * 1024;
 constexpr VkDeviceSize max_readback_bytes = 256ull * 1024 * 1024;
 
 template<class T> T info(VkStructureType type) {
@@ -135,6 +138,10 @@ struct Renderer::Impl {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkPhysicalDevice physical = VK_NULL_HANDLE;
     VkPhysicalDeviceMemoryProperties memory_properties{};
+    VkPhysicalDeviceProperties physical_properties{};
+    VkPhysicalDeviceFeatures enabled_features{};
+    bool line_rasterization = false, smooth_lines = false, bresenham_lines = false;
+    bool native_clip_depth = false, force_standard_depth = false;
     VkDevice device = VK_NULL_HANDLE;
     VkQueue graphics = VK_NULL_HANDLE, present = VK_NULL_HANDLE;
     std::uint32_t graphics_family = 0, present_family = 0;
@@ -158,6 +165,28 @@ struct Renderer::Impl {
     int drawable_width = 0, drawable_height = 0;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
+    struct FaithfulTexture {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
+        VkDescriptorSet descriptor = VK_NULL_HANDLE;
+        std::shared_ptr<const Texture> source;
+        VkDeviceSize bytes = 0;
+    };
+    using TextureKey = std::pair<std::uint32_t,std::uint64_t>;
+    std::map<TextureKey,FaithfulTexture> faithful_textures;
+    std::map<std::array<std::uint32_t,16>,VkPipeline> faithful_pipelines;
+    VkDescriptorSetLayout faithful_set_layout = VK_NULL_HANDLE;
+    VkDescriptorPool faithful_descriptor_pool = VK_NULL_HANDLE;
+    VkPipelineLayout faithful_layout = VK_NULL_HANDLE;
+    VkShaderModule faithful_vertex_shader = VK_NULL_HANDLE, faithful_fragment_shader = VK_NULL_HANDLE;
+    VkImage faithful_color = VK_NULL_HANDLE, faithful_depth = VK_NULL_HANDLE;
+    VkDeviceMemory faithful_color_memory = VK_NULL_HANDLE, faithful_depth_memory = VK_NULL_HANDLE;
+    VkImageView faithful_color_view = VK_NULL_HANDLE, faithful_depth_view = VK_NULL_HANDLE;
+    VkFormat faithful_color_format = VK_FORMAT_UNDEFINED, faithful_depth_format = VK_FORMAT_UNDEFINED;
+    bool faithful_mode = false, faithful_used = false;
+    std::vector<Buffer> faithful_uploads;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debug(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
             VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT* data,
@@ -301,7 +330,41 @@ struct Renderer::Impl {
         const auto supported = enumerate<VkExtensionProperties>([this](auto* count, auto* values) {
             return vkEnumerateDeviceExtensionProperties(physical, nullptr, count, values);
         }, "Enumerate selected device extensions");
+        vkGetPhysicalDeviceProperties(physical, &physical_properties);
+        statistics.max_texture_size = physical_properties.limits.maxImageDimension2D;
+        VkPhysicalDeviceFeatures supported_features{};
+        vkGetPhysicalDeviceFeatures(physical, &supported_features);
+        enabled_features.fillModeNonSolid = supported_features.fillModeNonSolid;
+        enabled_features.largePoints = supported_features.largePoints;
+        enabled_features.wideLines = supported_features.wideLines;
+        enabled_features.samplerAnisotropy = supported_features.samplerAnisotropy;
         std::vector<const char*> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        auto line_features = info<VkPhysicalDeviceLineRasterizationFeaturesEXT>(
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT);
+        if (extension(supported, VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME)) {
+            auto query = info<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+            query.pNext = &line_features;
+            vkGetPhysicalDeviceFeatures2(physical, &query);
+            smooth_lines = line_features.smoothLines;
+            bresenham_lines = line_features.bresenhamLines;
+            line_features.rectangularLines = VK_FALSE;
+            line_features.stippledRectangularLines = VK_FALSE;
+            line_features.stippledBresenhamLines = VK_FALSE;
+            line_features.stippledSmoothLines = VK_FALSE;
+            line_rasterization = smooth_lines || bresenham_lines;
+            if (line_rasterization) extensions.push_back(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME);
+        }
+        auto clip_features = info<VkPhysicalDeviceDepthClipControlFeaturesEXT>(
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_CONTROL_FEATURES_EXT);
+        const char* clip_setting = SDL_getenv("VULKANTRON_NATIVE_CLIP_DEPTH");
+        force_standard_depth = clip_setting && std::strcmp(clip_setting, "0") == 0;
+        if (!force_standard_depth && extension(supported, VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME)) {
+            auto query = info<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+            query.pNext = &clip_features;
+            vkGetPhysicalDeviceFeatures2(physical, &query);
+            native_clip_depth = clip_features.depthClipControl;
+            if (native_clip_depth) extensions.push_back(VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME);
+        }
         auto maintenance_features = info<VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT>(
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT);
         if (maintenance_instance && extension(supported, VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
@@ -325,9 +388,21 @@ struct Renderer::Impl {
         auto features13 = info<VkPhysicalDeviceVulkan13Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
         features13.dynamicRendering = VK_TRUE;
         features13.synchronization2 = VK_TRUE;
-        features13.pNext = maintenance ? &maintenance_features : nullptr;
+        if (native_clip_depth) {
+            clip_features.pNext = features13.pNext;
+            features13.pNext = &clip_features;
+        }
+        if (line_rasterization) {
+            line_features.pNext = features13.pNext;
+            features13.pNext = &line_features;
+        }
+        if (maintenance) {
+            maintenance_features.pNext = features13.pNext;
+            features13.pNext = &maintenance_features;
+        }
         auto create = info<VkDeviceCreateInfo>(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
         create.pNext = &features13;
+        create.pEnabledFeatures = &enabled_features;
         create.queueCreateInfoCount = static_cast<std::uint32_t>(queue_info.size());
         create.pQueueCreateInfos = queue_info.data();
         create.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
@@ -345,6 +420,16 @@ struct Renderer::Impl {
             }
         }
         if (depth_format == VK_FORMAT_UNDEFINED) throw std::runtime_error("No supported depth attachment format");
+        for (auto format : {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT}) {
+            VkFormatProperties properties{};
+            vkGetPhysicalDeviceFormatProperties(physical, format, &properties);
+            if (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+                faithful_depth_format = format;
+                statistics.depth_bits = format == VK_FORMAT_D24_UNORM_S8_UINT ? 24 : 32;
+                statistics.stencil_bits = 8;
+                break;
+            }
+        }
     }
 
     std::uint32_t memory_type(std::uint32_t allowed, VkMemoryPropertyFlags required,
@@ -521,6 +606,7 @@ struct Renderer::Impl {
         }
     }
     void destroy_swapchain() noexcept {
+        destroy_faithful_target();
         if (pipeline) vkDestroyPipeline(device, pipeline, nullptr);
         if (pipeline_layout) vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         pipeline = VK_NULL_HANDLE; pipeline_layout = VK_NULL_HANDLE;
@@ -562,9 +648,10 @@ struct Renderer::Impl {
             if (found != formats.end()) { selected = {preferred, found->colorSpace}; break; }
         }
         if (selected.format == VK_FORMAT_UNDEFINED) throw std::runtime_error("No supported 8-bit sRGB presentation format");
-        const VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        const VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                        (faithful_mode ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0);
         if ((capabilities.supportedUsageFlags & usage) != usage)
-            throw std::runtime_error("Surface cannot provide color attachment plus screenshot transfer source");
+            throw std::runtime_error("Surface lacks required color/capture/presentation-copy image usage");
         idle();
         // Precise presentation retirement uses maintenance fences where exposed.
         // The unextended fallback follows Khronos' documented WaitIdle approach.
@@ -608,8 +695,6 @@ struct Renderer::Impl {
             require(vkCreateSemaphore(device, &semaphore, nullptr, &images[i].finished), "Create per-image presentation semaphore");
             if (maintenance) require(vkCreateFence(device, &fence, nullptr, &images[i].present_fence), "Create presentation fence");
         }
-        create_depth();
-        create_pipeline();
         drawable_width = width; drawable_height = height;
         statistics.width = extent.width; statistics.height = extent.height;
         dirty = false;
@@ -619,14 +704,14 @@ struct Renderer::Impl {
     void image_barrier(VkImage image, VkImageAspectFlags aspect, VkImageLayout old_layout,
                        VkImageLayout new_layout, VkPipelineStageFlags2 source_stage,
                        VkAccessFlags2 source_access, VkPipelineStageFlags2 target_stage,
-                       VkAccessFlags2 target_access) {
+                       VkAccessFlags2 target_access, std::uint32_t mip_levels = 1) {
         auto barrier = info<VkImageMemoryBarrier2>(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2);
         barrier.srcStageMask = source_stage; barrier.srcAccessMask = source_access;
         barrier.dstStageMask = target_stage; barrier.dstAccessMask = target_access;
         barrier.oldLayout = old_layout; barrier.newLayout = new_layout;
         barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.image = image;
-        barrier.subresourceRange = {aspect, 0, 1, 0, 1};
+        barrier.subresourceRange = {aspect, 0, mip_levels, 0, 1};
         auto dependency = info<VkDependencyInfo>(VK_STRUCTURE_TYPE_DEPENDENCY_INFO);
         dependency.imageMemoryBarrierCount = 1; dependency.pImageMemoryBarriers = &barrier;
         vkCmdPipelineBarrier2(command, &dependency);
@@ -636,7 +721,7 @@ struct Renderer::Impl {
         if (acquire_unconsumed)
             throw std::runtime_error("Previous frame failed after acquisition; recreate the renderer before drawing again");
         if (frame.vertices.size() > max_vertices || frame.vertices.size() % 3 != 0)
-            throw std::runtime_error("Frame must contain at most 1048576 vertices in complete triangles");
+            throw std::runtime_error("Frame must contain at most 4194304 vertices in complete triangles");
         for (float value : frame.view_projection) if (!std::isfinite(value))
             throw std::runtime_error("Nonfinite view-projection matrix");
         for (const auto& vertex : frame.vertices) {
@@ -648,6 +733,8 @@ struct Renderer::Impl {
             throw std::runtime_error(std::string("Query drawable: ") + SDL_GetError());
         if (width <= 0 || height <= 0 || (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)) return false;
         if ((dirty || width != drawable_width || height != drawable_height) && !recreate(width, height)) return false;
+        if (!depth_image) create_depth();
+        if (!pipeline) create_pipeline();
         if (submission_pending) {
             require(vkWaitForFences(device, 1, &submitted, VK_TRUE, UINT64_MAX), "Wait for previous frame");
             submission_pending = false;
@@ -795,6 +882,8 @@ struct Renderer::Impl {
         return true;
     }
 
+    #include "renderer_faithful.inc"
+
     void shutdown() {
         if (shutdown_complete) return;
         shutdown_complete = true;
@@ -807,6 +896,7 @@ struct Renderer::Impl {
                 failure = std::current_exception();
             }
             destroy_swapchain();
+            destroy_faithful();
             destroy_buffer(vertices); destroy_buffer(readback);
             if (acquired) vkDestroySemaphore(device, acquired, nullptr);
             if (acquire_fence) vkDestroyFence(device, acquire_fence, nullptr);
@@ -851,6 +941,7 @@ Renderer::Renderer(SDL_Window* window, const std::filesystem::path& shaders, boo
     : impl_(std::make_unique<Impl>()) { impl_->init(window, shaders, validation); }
 Renderer::~Renderer() = default;
 bool Renderer::draw(const Frame& frame, const std::filesystem::path& capture) { return impl_->draw(frame, capture); }
+bool Renderer::draw(const FaithfulFrame& frame, std::vector<std::uint8_t>* rgb) { return impl_->draw_faithful(frame, rgb); }
 void Renderer::wait_idle() { impl_->idle(); }
 void Renderer::shutdown() { impl_->shutdown(); }
 const RenderStats& Renderer::stats() const {

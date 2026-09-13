@@ -1,0 +1,25 @@
+VulkanTron @VULKANTRON_VERSION@
+
+Run ./bin/vulkantron from the extracted archive. The executable finds the
+included assets and shaders relative to its location, including when launched
+from another working directory. Run ./bin/vulkantron --help for options.
+The preserved OpenGL comparison executable is ./bin/gltron.
+
+This @CMAKE_SYSTEM_NAME@ @CMAKE_SYSTEM_PROCESSOR@ build uses direct Vulkan 1.3,
+SDL3 @GLTRON_SDL_VERSION@, and libpng. Audio: @GLTRON_AUDIO_DESCRIPTION@.
+Install runtime libraries and your GPU's Vulkan driver through your distribution.
+Drivers and system shared libraries are not bundled. --validation additionally
+requires the Khronos validation layer.
+
+Original gameplay, menus, cameras, local multiplayer, assets and music are
+retained. Artpacks, audio and controls are selectable in the original menus.
+VulkanTron preferences default to $XDG_CONFIG_HOME/vulkantron/.gltronrc, or
+~/.config/vulkantron/.gltronrc. Screenshots default to
+$XDG_STATE_HOME/vulkantron/screenshots, or ~/.local/state/vulkantron/screenshots.
+VULKANTRON_CONFIG_DIR and VULKANTRON_SCREENSHOT_DIR override those directories.
+F5 saves preferences; F11 saves BMP; F12 saves PNG.
+
+COPYING contains the game license. licenses/LUA-COPYRIGHT.txt contains the
+bundled Lua notice. The included documentation records provenance, architecture,
+verification results and platform limits. This remains an independent project;
+the original GLTron contributors retain their authorship and asset credits.

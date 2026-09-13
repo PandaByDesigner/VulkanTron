@@ -21,5 +21,6 @@ gltronPrefs.txt
 gltron-[0-9]*.png
 gltron-[0-9]*.bmp
 vulkantron-[0-9]*.png
+vulkantron-[0-9]*.bmp
 __pycache__/
 *.py[cod]

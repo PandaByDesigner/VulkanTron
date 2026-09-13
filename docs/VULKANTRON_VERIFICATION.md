@@ -1,88 +1,138 @@
-# Initial direct Vulkan verification
+# VulkanTron 0.2.0 verification
 
-Recorded 2026-09-12 for the first VulkanTron development checkpoint, based on
-faithful-remaster commit `99d2f080ea2e9d3c1db693cb4f7c21354e9114a4`.
-This verifies an early renderer and simulation bridge, not a complete faithful
-port or a performance target.
+Recorded 2026-09-13 for the complete faithful game, based on GLTron Faithful
+Remaster `99d2f080ea2e9d3c1db693cb4f7c21354e9114a4`. The early simplified arena
+has separate [historical evidence](VULKANTRON_BOOTSTRAP_VERIFICATION.md).
+The installed `share/vulkantron/build-info.txt` identifies the source revision
+and toolchain of each package; native invocation manifests also hash their
+executables.
 
-## Build and headless checks
+## Scope and platform
 
-- Release builds both the preserved OpenGL reference and the new Vulkan program.
-- All 14 inherited remaster regressions passed in this independent checkout.
-- Three new checks pass in Release and with AddressSanitizer/UndefinedBehaviorSanitizer:
-  `vulkantron-classic-bridge`, `vulkantron-scene`, and `vulkantron-headless-check`.
-- Shader compilation and `spirv-val --target-env vulkan1.3` pass.
-- Dynamic-library and symbol inspection finds Vulkan, SDL3 and libpng in the new
-  executable, with no OpenGL or SDL_GPU rendering calls.
-- Original production sources under `src`, `nebu`, and `lua`, and the inherited
-  `art`, `data`, `music`, and `scripts` are unchanged from the fork baseline.
+The production game, Lua menus, settings, input, audio and assets are compiled
+into `vulkantron`. The graphics boundary uses the game-specific state recorder
+and direct Vulkan backend described in [the architecture guide](VULKANTRON_RENDERER.md).
+The OpenGL reference remains available as `gltron`; `vulkantron-lab` is a
+separate development tool.
 
-The bridge uses production rules/AI/events/camera code. Its focused test covers
-relative turns, boost/release, repeated seeded resets, real camera modes,
-1,200 queued turns, round completion, and shutdown/reinitialization. The scene
-test checks the original model's vertex positions, materials/headings, trail
-heights, projection conventions, finite bounds, malformed assets, and explicit
-geometry limits. The integration self-test ensures drawing does not mutate the
-gameplay hash.
+The tested system is Linux x86-64, NVIDIA GeForce GTX 1660, driver 610.57.04,
+device API 1.4.341, Vulkan loader/validation 1.4.357, SDL3 3.4.16, and Hyprland
+0.56.2. The renderer requests Vulkan 1.3 dynamic rendering and synchronization2.
+This GPU provides the optional presentation fences, line rasterization and
+negative-one-to-one depth-clip mode used by these tests. Depth/stencil was
+24/8 bits in both renderers.
 
-## Native GPU checks
+## Completed checks
 
-Machine: Linux x86-64, NVIDIA GeForce GTX 1660, driver 610.57.04, device API
-1.4.341, SDL3 3.4.16, Vulkan loader/validation 1.4.357. The renderer requests
-Vulkan 1.3 dynamic rendering and synchronization2. This device exposes the
-optional presentation fences used by this implementation.
+| Area | Evidence |
+| --- | --- |
+| CPU regressions | All 19 Release tests and all 19 ASan/UBSan tests pass. They include the inherited gameplay, camera, layout, input, settings, assets, audio and trail tests, plus five Vulkan development/adapter/platform tests. |
+| Recorder and capture lifetime | Tests cover matrix/lighting state, primitive conversion, texture versions/mips, bounded resources, screenshot packing, once-only submission, multiple readbacks, swap, skipped frames and renderer restart. Isolated adapter/platform leak checks pass; whole-program leak freedom is not claimed. |
+| Direct renderer | Shader compilation and SPIR-V validation pass. ELF dependency and undefined-symbol inspection find no OpenGL rendering or SDL_GPU calls in the Vulkan executable. |
+| Native X11 | Release full-game harness: 39 scenes for each of the default and faithful artpacks; game state, visual state, time and drawable sizes match the OpenGL reference exactly. |
+| Native Wayland | The same 78 comparisons pass under ASan/UBSan. Logical and pixel dimensions differ by 2x on the HiDPI display. |
+| Reference stability | Two independent OpenGL runs per artpack and window backend match decoded RGB pixels exactly before Vulkan comparison. |
+| GPU correctness | Every final Vulkan harness run reports zero core/synchronization validation errors, zero adapter errors and successful explicit cleanup after 274 frames. No depth-mode environment override was set. |
+| Window lifecycle | Actual fullscreen entry/exit, drawable changes and hide/show restoration are observed. The compositor does not perform requested minimization; see limits below. |
+| Installed game | A relocated installation launches from `/tmp`, finds its own packaged assets/shaders, loads the faithful artpack and Revenge of Cats, and registers an active PipeWire playback node. |
+| Native input and screenshots | Compositor-delivered menu, turn, boost, screenshot and save keys reach the installed production game. F11 BMP and F12 PNG files decode fully at 1600x1200 and 1920x1080; the application exits with zero Vulkan/adapter errors after 8,187 frames. |
+| Profile isolation | The installed wrapper seeds its own faithful profile. F5 saves there; ambient classic profile/screenshot overrides are ignored and their canary contents remain unchanged. |
+| Failure cleanup | An invalid faithful shader produces a clear failure and nonzero process exit, with zero Vulkan validation or cleanup errors. |
+| Launcher | Repeated installation verifies complete content, preserves existing versions, and passes real GLib desktop launching even with spaces, backslashes, quotes, percent signs and shell punctuation in the prefix. Help/version do not create preferences. |
+
+The shared gameplay sources, scripts, original art, models, fonts, music and
+Lua are unchanged from the fork baseline. One inert `glVertex3f` outside any
+primitive in `explosion.c` was removed from both renderer builds: it drew
+nothing and only raised an OpenGL error. Other shared changes select the
+Vulkan window/render boundary, application identity and private profile paths.
+
+## Image comparison and visual review
+
+Each run covers the root/game/video/detail/audio/key menus, key configuration,
+all 95 printable font glyphs, credits, single/two/four-player views and pause,
+four cameras, AI HUD, recognizer, stencil/simple shadows, transparent trails,
+untextured floor and fog, early/late crashes, winner/draw messages, trails with
+155/243/999/2005 segments, artpack reloads, resize and window restoration.
+Captures retain the actual full framebuffer: normally 3792x2052 and fullscreen
+3840x2160. Images are never resized, aligned, blurred or masked for acceptance.
+Visual review supplements the numerical checks, including the installed 4:3
+and widescreen game, menus, HUD, textures, shadows and remaining effect differences.
+
+For each artpack on each window backend, **36 of 39** scenes pass the original
+general image budget. **Three** (`crash-late`, `winner`, `draw-result`) pass the
+explicit coplanar-effect policy below and remain labeled as exceeding the
+general local-tile budget. All scene states match exactly.
+
+| Raw image metric (8-bit RGB) | General limit | Three coplanar scenes | Maximum observed over final Vulkan comparisons |
+| --- | ---: | ---: | ---: |
+| Mean absolute channel error | 2.0 | 0.10 | 0.07459 |
+| Pixels with any channel error >16 | 2% | 0.2% | 0.13961% |
+| 99th-percentile maximum channel error | 32 | 32 | 0 |
+| Worst 32x32 tile mean error | 12 | 18 | 16.01693 |
+
+The original shockwave strips and impact spires overlap at the same depth.
+Full-resolution inspection shows red/white depth-tie coverage differences in
+that overlap. Triangulation, matrix composition, fused arithmetic and native
+clip-depth experiments narrowed the cause to raster/depth rounding. The final
+renderer preserves the original geometry and draw order, uses cached composed
+matrices, and prefers native OpenGL-compatible clip depth when supported.
+It does not hide the difference by offsetting geometry or changing effects.
+
+The scoped policy tightens full-frame limits while allowing a slightly larger
+local error in these three named fixtures. Reports retain every raw metric and
+the original general-budget result. The checker's self-test confirms that a
+missing small glyph still fails both policies and that no other scene receives
+the exception. These are visually faithful comparisons, not bit-identical
+OpenGL/Vulkan images.
+
+## Reproducing the checks
 
 ```sh
-python3 tools/check_vulkantron_native.py \
-  --executable build/release/bin/vulkantron --driver x11 \
-  --output /tmp/vulkantron-check-x11
-python3 tools/check_vulkantron_native.py \
-  --executable build/asan/bin/vulkantron --driver wayland \
-  --output /tmp/vulkantron-check-wayland
+cmake --preset release -DGLTRON_BUILD_NATIVE_TESTS=ON
+cmake --build --preset release
+ctest --preset release
+cmake --preset asan -DGLTRON_BUILD_NATIVE_TESTS=ON
+cmake --build --preset asan
+ctest --preset asan
+python3 tools/check_vulkantron_faithful.py --self-test
+python3 tools/check_vulkantron_faithful.py \
+  --opengl build/release/vulkantron-reference-smoke \
+  --vulkan build/release/vulkantron-faithful-smoke \
+  --assets . --driver x11 --output /tmp/vulkantron-x11-new
+python3 tools/check_vulkantron_faithful.py \
+  --opengl build/asan/vulkantron-reference-smoke \
+  --vulkan build/asan/vulkantron-faithful-smoke \
+  --assets . --driver wayland --output /tmp/vulkantron-wayland-new
 ```
 
-Each output directory must be new. The helper enables synchronization
-validation with `VK_LAYER_VALIDATE_SYNC=1`, captures logs, and has a per-process
-timeout. Both backend runs passed these checks:
+Use a new output directory and a working native desktop. NumPy/Pillow are
+required for the Python comparison. The checker supplies isolated profiles,
+dummy audio, a fixed seed and clock, synchronization validation, timeouts,
+manifest verification and final cleanup gates. Real PipeWire and keyboard
+checks are separate from that deterministic harness. The final comparisons
+reuse the already verified, exact OpenGL baseline captures; their provenance
+files preserve the original invocations and hashes.
 
-| Check | Result |
-| --- | --- |
-| Overview and production follow camera | Each rendered exactly 160 frames and saved a complete PNG. |
-| GPU correctness | Zero core or synchronization validation errors, including explicit shutdown. |
-| Window lifecycle | Three requests issued; actual fullscreen entry/exit events and drawable-change events observed; rendering and capture continued. |
-| Renderer independence | All four runs produced gameplay hash `dc180613b141086e` at the same 160 fixed steps. |
-| Capture protection | An existing PNG was rejected without changing its SHA256. |
-| Failure cleanup | An invalid shader failed with a clear diagnostic and no validation/cleanup errors. |
-| Memory instrumentation | The native Wayland checks also ran with ASan/UBSan and reported no errors. |
+The development machine keeps the final reports, logs, full-resolution captures,
+state manifests, timing samples and executable hashes under the project's
+ignored `build/verification` directory. These local artifacts are not bundled
+as source or runtime data.
 
-The desktop tiled the requested 1280x720 window into a 1882x2052 drawable;
-captures have those actual dimensions. The checks observe fullscreen and
-drawable events, not exact compliance with a requested window size. Captures
-were visually inspected: original cycle geometry, four player colors, trails,
-floor and boundary walls are visible. Thin grid geometry still aliases at a
-distance; textures, antialiasing, lighting/color parity and other presentation
-work remain pending.
+## Performance and remaining limits
 
-## Findings and limits
+The release X11 fixture measures about 16.67 ms per warmed display/presentation
+call on this 60 Hz desktop. This includes CPU work, command submission and
+presentation waits; it is neither an isolated GPU timing nor evidence of an
+OpenGL-to-Vulkan speedup. Sanitizer timings include heavy instrumentation.
+The adapter evaluates legacy vertex transforms and lighting on the CPU, uses
+one frame in flight, and prioritizes fidelity and inspectable resource lifetime.
+Future optimization needs profiling and the same parity fixtures.
 
-Synchronization validation initially caught a swapchain-acquisition/layout
-transition hazard that ordinary validation had not reported. The first image
-barrier now includes the color-output stage in its source execution dependency,
-matching the acquire semaphore wait. Final reruns pass synchronization checks.
-The program finalizes Vulkan resources before checking validation totals, so
-cleanup errors cannot be hidden by an earlier successful frame count.
-
-An overview depth-precision problem was corrected by choosing a scene-scaled
-near plane for that diagnostic camera. The gameplay camera retains its classic
-near-plane value. The overview is a development aid, not an original camera.
-
-This is a conservative one-frame-in-flight renderer, not an optimized GPU
-architecture. No FPS/latency improvement is claimed. Minimize/restore behavior,
-physical keyboard/controller interaction, additional GPUs/platforms, and the
-presentation-fence fallback path have not received native certification in
-this checkpoint. Whole-program leak freedom is not claimed; traced native runs
-disable LeakSanitizer. The isolated bridge and scene tests also passed separate
-untraced LeakSanitizer runs.
-
-The [development plan](VULKANTRON_PLAN.md) lists the remaining faithful-port
-milestones. Inherited OpenGL release evidence does not certify Vulkan parity.
+Native minimization is not certified because this compositor ignores that
+request; hide/show recovery and a headless skipped-frame lifecycle are tested
+separately. Physical controller hardware, other GPUs/drivers, other operating
+systems and the optional presentation-fence fallback require separate native
+verification. The supported release scope is the tested Linux system. CPU
+regressions cover input translation, but do not replace controller hardware QA.
+Whole-game ASan/UBSan runs disable LeakSanitizer; isolated adapter/platform
+leak tests do not establish whole-program leak freedom.

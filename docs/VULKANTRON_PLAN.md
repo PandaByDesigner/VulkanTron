@@ -17,7 +17,25 @@ The first target is Linux on the available GeForce GTX 1660. Its driver reports
 Vulkan 1.4.341; the renderer baseline is Vulkan 1.3. Additional hardware and
 operating systems require their own capability and behavior checks.
 
-## First milestone: playable direct-Vulkan foundation
+## Complete-game integration
+
+The full `vulkantron` target now compiles the original production game, Lua,
+menus, asset loading, audio and input against the direct Vulkan renderer.
+`fixed_function.cpp` records its drawing operations and `renderer.cpp` executes
+them with Vulkan. The OpenGL target consumes the same production sources.
+See [renderer architecture](VULKANTRON_RENDERER.md) for that boundary.
+
+The initial simplified arena is retained as `vulkantron-lab`. Its milestone
+notes below describe that historical checkpoint, not the current full-game
+executable. Full native comparison and release evidence are maintained in
+[VulkanTron verification](VULKANTRON_VERIFICATION.md). A working feature or a
+valid command stream alone does not close a visual parity requirement.
+
+## Historical first milestone: playable direct-Vulkan foundation
+
+The following describes the original `vulkantron-lab` checkpoint. Its deferred
+features are now implemented in the full game described above; they are not
+outstanding work for the 0.2.0 faithful port.
 
 The initial slice provides one visible arena with a human player and three AIs,
 plus a four-AI demonstration. It includes deterministic seeded resets, relative

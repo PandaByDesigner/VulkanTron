@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>VulkanTron</title>
+  <desc>A cyan V and amber light trail above a dark arena grid.</desc>
+  <defs>
+    <linearGradient id="ground" x2="0" y2="1">
+      <stop stop-color="#111c32"/>
+      <stop offset="1" stop-color="#040913"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#e6fcff"/>
+      <stop offset=".45" stop-color="#48ddff"/>
+      <stop offset="1" stop-color="#138de3"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="url(#ground)" stroke="#254665" stroke-width="3"/>
+  <g fill="none" stroke="#195474" stroke-width="2" opacity=".7">
+    <path d="M28 211H228M37 190H219M45 174H211M53 161H203"/>
+    <path d="M35 230L96 148M83 230L113 148M128 230V148M173 230L143 148M221 230L160 148"/>
+  </g>
+  <path d="M58 66L126 177L198 61" fill="none" stroke="#071321" stroke-width="39" stroke-linejoin="round"/>
+  <path d="M58 66L126 177L198 61" fill="none" stroke="url(#cyan)" stroke-width="23" stroke-linejoin="round"/>
+  <path d="M48 207H156L197 146" fill="none" stroke="#ffb52b" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M48 207H156L197 146" fill="none" stroke="#fff1c3" stroke-width="2" stroke-linejoin="round"/>
+</svg>

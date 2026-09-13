@@ -9,6 +9,9 @@
 #include <string.h>
 
 // #include <unistd.h>
+#ifdef GLTRON_DIRECT_VULKAN
+#include "faithful_platform.h"
+#endif
 #include <limits.h>
 #include <unistd.h>
 
@@ -79,6 +82,19 @@ void initDirectories(void) {
   char candidate[PATH_MAX];
 #endif
 
+#ifdef GLTRON_DIRECT_VULKAN
+  const char *vulkan_data = getenv("VULKANTRON_DATA_DIR");
+  const char *vulkan_config = getenv("VULKANTRON_CONFIG_DIR");
+  const char *vulkan_screenshots = getenv("VULKANTRON_SCREENSHOT_DIR");
+  if(vulkan_data != NULL && vulkan_data[0]) override = vulkan_data;
+  /* A renderer comparison may have classic overrides in its parent shell.
+   * VulkanTron profiles are selected only through its own application names. */
+  config = vulkan_config;
+  screenshots = vulkan_screenshots;
+  if(config == NULL || !config[0]) config = VT_FaithfulDefaultDirectory(0);
+  if(screenshots == NULL || !screenshots[0]) screenshots = VT_FaithfulDefaultDirectory(1);
+  if(config == NULL || screenshots == NULL) exit(EXIT_FAILURE);
+#endif
   if(config != NULL && config[0] != '\0') copyPath(preferences_dir, config);
   else if(PREF_DIR[0] != '~') copyPath(preferences_dir, PREF_DIR);
   else {

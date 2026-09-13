@@ -10,6 +10,7 @@
 struct SDL_Window;
 
 namespace vt {
+struct FaithfulFrame;
 struct Vertex {
     float position[3];
     float color[4];
@@ -24,6 +25,7 @@ struct Frame {
 struct RenderStats {
     std::string device;
     std::uint32_t width = 0, height = 0;
+    std::uint32_t depth_bits = 0, stencil_bits = 0, max_texture_size = 0;
     std::uint64_t frames = 0;
     std::uint32_t validation_errors = 0;
 };
@@ -37,6 +39,9 @@ public:
     // Returns false when the drawable cannot currently be rendered. A nonempty
     // capture path writes this complete frame, exclusively (never overwrites).
     bool draw(const Frame& frame, const std::filesystem::path& capture = {});
+    // Execute the recorded classic frame exactly once, then present it. Optional
+    // readback is complete framebuffer RGB in the game's bottom-up row order.
+    bool draw(const FaithfulFrame& frame, std::vector<std::uint8_t>* bottom_up_rgb = nullptr);
     void wait_idle();
     // Idempotent finalization; stats remain readable, including cleanup errors.
     void shutdown();

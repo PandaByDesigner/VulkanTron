@@ -26,3 +26,10 @@ background, no transparency, no checkerboard, no collage, no mockup, no multiple
 variants, no watermark. The cyan single cycle and yellow angular trail must
 clearly distinguish this from the old GLTron icon showing two yellow and blue
 cycles.
+
+## VulkanTron icon
+
+`vulkantron.svg` is an original scalable V-and-light-trail icon created for
+this port. It distinguishes the VulkanTron app-menu entry from the retained
+GLTron Faithful Remaster launcher. It does not replace any in-game artwork.
+The SVG source is distributed under the project's GPL-2.0-or-later license.

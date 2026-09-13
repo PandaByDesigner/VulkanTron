@@ -83,7 +83,6 @@ static void drawSpires(float radius) {
   };
 
   glColor3f(1, 1, 1);
-  glVertex3f(0, 0, 0);
  
   glBlendFunc(GL_ONE, GL_ONE);
 
@@ -146,4 +145,3 @@ void drawExplosion(float *radius) {
   
   *radius += game2->time.dt * IMPACT_RADIUS_DELTA;
 }
-

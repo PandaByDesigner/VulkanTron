@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=VulkanTron
+GenericName=Lightcycle game
+Comment=Faithful GLTron gameplay with a direct Vulkan renderer
+Exec=vulkantron
+Icon=vulkantron
+Terminal=false
+StartupNotify=false
+StartupWMClass=io.github.PandaByDesigner.VulkanTron
+Categories=Game;ArcadeGame;
+Keywords=GLTron;Tron;Vulkan;Lightcycle;Arcade;

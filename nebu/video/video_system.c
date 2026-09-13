@@ -12,6 +12,9 @@
 #endif
 #include <limits.h>
 #include <stdint.h>
+#ifdef GLTRON_DIRECT_VULKAN
+#include "faithful_platform.h"
+#endif
 
 static int width, height;
 static int drawable_width, drawable_height;
@@ -23,7 +26,9 @@ extern int video_initialized;
 
 #if SDL_MAJOR_VERSION >= 2
 static SDL_Window *window;
+#ifndef GLTRON_DIRECT_VULKAN
 static SDL_GLContext gl_context;
+#endif
 static int input_grabbed;
 static int pointer_hidden;
 static int relative_mouse_mode;
@@ -181,7 +186,10 @@ void SystemSwapBuffers(void) {
     capture_callback = NULL;
     capture();
   }
-#if SDL_MAJOR_VERSION >= 2
+#ifdef GLTRON_DIRECT_VULKAN
+  if(window != NULL)
+    VT_FaithfulSwap();
+#elif SDL_MAJOR_VERSION >= 2
   if(window != NULL)
     SDL_GL_SwapWindow(window);
 #else
@@ -209,6 +217,7 @@ void SystemInitDisplayMode(int f, unsigned char full) {
       exit(1);
     }
   }
+#ifndef GLTRON_DIRECT_VULKAN
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, (flags & SYSTEM_DOUBLE) != 0);
 #if SDL_MAJOR_VERSION >= 2
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -219,6 +228,7 @@ void SystemInitDisplayMode(int f, unsigned char full) {
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,
                      (flags & SYSTEM_DEPTH) ? ((flags & SYSTEM_32_BIT) ? 24 : 16) : 0);
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, (flags & SYSTEM_STENCIL) ? 8 : 0);
+#endif /* OpenGL context attributes */
   video_initialized = 1;
 }
 
@@ -242,7 +252,13 @@ void SystemSetGamma(float red, float green, float blue) {
 
 int SystemCreateWindow(char *name) {
 #if SDL_MAJOR_VERSION >= 3
-  SDL_WindowFlags window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
+  SDL_WindowFlags window_flags =
+#ifdef GLTRON_DIRECT_VULKAN
+                                 SDL_WINDOW_VULKAN |
+#else
+                                 SDL_WINDOW_OPENGL |
+#endif
+                                 SDL_WINDOW_RESIZABLE |
                                  SDL_WINDOW_HIGH_PIXEL_DENSITY;
   if(SystemIsFullscreen()) window_flags |= SDL_WINDOW_FULLSCREEN;
   window = SDL_CreateWindow(name, width, height, window_flags);
@@ -267,6 +283,13 @@ int SystemCreateWindow(char *name) {
     fprintf(stderr, "[system] Couldn't create GL window: %s\n", SDL_GetError());
     return -1;
   }
+#ifdef GLTRON_DIRECT_VULKAN
+  if(!VT_FaithfulInitialize(window)) {
+    SDL_DestroyWindow(window);
+    window = NULL;
+    return -1;
+  }
+#else
   gl_context = SDL_GL_CreateContext(window);
 #if SDL_MAJOR_VERSION >= 3
   if(gl_context == NULL || !SDL_GL_MakeCurrent(window, gl_context)) {
@@ -287,6 +310,7 @@ int SystemCreateWindow(char *name) {
     return -1;
   }
 #endif
+#endif /* renderer initialization */
   SystemGetDrawableSize(&drawable_width, &drawable_height);
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -394,6 +418,9 @@ void SystemDestroyWindow(int id) {
   }
   relative_mouse_mode = input_grabbed = pointer_hidden = 0;
   SystemInputSetRelativeMouseMode(0);
+#ifdef GLTRON_DIRECT_VULKAN
+  VT_FaithfulShutdown();
+#else
   if(gl_context != NULL) {
 #if SDL_MAJOR_VERSION >= 3
     SDL_GL_DestroyContext(gl_context);
@@ -402,6 +429,7 @@ void SystemDestroyWindow(int id) {
 #endif
     gl_context = NULL;
   }
+#endif /* renderer shutdown */
   if(window != NULL) {
     SDL_DestroyWindow(window);
     window = NULL;

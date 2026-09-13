@@ -7,7 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef GLTRON_DIRECT_VULKAN
+#define SCREENSHOT_PREFIX "vulkantron"
+#else
 #define SCREENSHOT_PREFIX "gltron"
+#endif
 
 typedef struct {
   int width, height;

@@ -4,7 +4,7 @@
   "configurePresets": [
     {
       "name": "release",
-      "displayName": "Faithful release (SDL3 + OpenGL)",
+      "displayName": "VulkanTron release (SDL3 + Vulkan; OpenGL reference)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "GLTRON_SDL_BACKEND": "SDL3", "GLTRON_RELEASE_SUFFIX": "", "BUILD_TESTING": "ON"}
@@ -12,7 +12,7 @@
     {
       "name": "debug",
       "inherits": "release",
-      "displayName": "Debug (SDL3 + OpenGL)",
+      "displayName": "VulkanTron debug (SDL3 + Vulkan; OpenGL reference)",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}
     },
