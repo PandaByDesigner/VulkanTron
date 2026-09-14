@@ -36,6 +36,7 @@ settings.ai_player4 = 1
 -- game settings
 settings.fast_finish = 1
 settings.camType = 1
+settings.invert_mouse_y = 0
 settings.display_type = 3
 
 -- video

@@ -125,6 +125,16 @@ Menu = {
       read = function() return settings.camType; end,
       store = function(value) settings.camType = value; c_resetCamera(); end
    },
+   InvertMouseY = {
+      type = MenuC.type.list, caption = "Invert Mouse Y",
+      labels = { "off", "on" },
+      values = { 0, 1 },
+      read = function() return settings.invert_mouse_y; end,
+      store = function(value)
+         settings.invert_mouse_y = value;
+         c_update_settings_cache();
+      end
+   },
    Viewports = {    
       type = MenuC.type.list, caption = "Viewports",
       labels = { "single", "split", "4 player", "auto" },
@@ -544,7 +554,7 @@ Menu.GameRulesMenu.items = {
    "GameType", "GameSpeed", "BotSkill", "ArenaSize", "EraseDeadPlayers" 
 }
 
-Menu.GameSettingsMenu.items = { "FastFinish", "CameraMode", "Viewports", "Map" }
+Menu.GameSettingsMenu.items = { "FastFinish", "CameraMode", "InvertMouseY", "Viewports", "Map" }
 Menu.PlayerConfigMenu.items = { "Player1", "Player2", "Player3", "Player4" }
 Menu.KeyConfigMenu.items = { 
    "Player1_KeyMenu", "Player2_KeyMenu", "Player3_KeyMenu", "Player4_KeyMenu"

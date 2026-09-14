@@ -366,7 +366,9 @@ static void testGlanceOffset(void) {
 }
 
 static void testInputFreedomAndClamping(void) {
+  /* Inverted mode must retain the original camera/clamp goldens exactly. */
   prepareMovement(CAM_TYPE_MOUSE);
+  gSettingsCache.invert_mouse_y = 1;
   game2->time.dt = 12000U;
   gInput.mouse1 = 1;
   gInput.mousex = 400;
@@ -395,6 +397,7 @@ static void testInputFreedomAndClamping(void) {
               test_cameras[0].movement[CAM_PHI], -1.2f);
 
   prepareMovement(CAM_TYPE_MOUSE);
+  gSettingsCache.invert_mouse_y = 1;
   game2->time.dt = 12000U;
   gInput.mouse2 = 1;
   gInput.mousex = -400;
@@ -446,6 +449,59 @@ static void testInputFreedomAndClamping(void) {
   playerCamera(&test_visuals[0], &test_players[0]);
   expectFloat("circling azimuth ignores mouse input",
               test_cameras[0].movement[CAM_PHI], 0.349f);
+}
+
+static float viewPitch(const Camera *camera) {
+  float dx = camera->target[0] - camera->cam[0];
+  float dy = camera->target[1] - camera->cam[1];
+  return atan2f(camera->target[2] - camera->cam[2], sqrtf(dx*dx + dy*dy));
+}
+
+static void testMouseYDirection(void) {
+  int type, motion, inverted;
+  for(type = 0; type < CAM_COUNT; type++) {
+    for(motion = -20; motion <= 20; motion += 40) {
+      float yaw[2], elevation_delta[2], radius[2];
+      for(inverted = 0; inverted <= 1; inverted++) {
+        Camera *camera = &test_cameras[0];
+        float initial_pitch, initial_elevation;
+        prepareMovement(type);
+        expectInt("fresh mouse direction is normal", gSettingsCache.invert_mouse_y, 0);
+        gSettingsCache.invert_mouse_y = inverted;
+        playerCamera(&test_visuals[0], &test_players[0]);
+        initial_pitch = viewPitch(camera);
+        initial_elevation = camera->movement[CAM_CHI];
+        gInput.mousex = 7;
+        gInput.mousey = motion;
+        playerCamera(&test_visuals[0], &test_players[0]);
+        if(type == CAM_TYPE_COCKPIT) {
+          expectFloat("cockpit vertical freedom stays locked", viewPitch(camera), initial_pitch);
+        } else {
+          int should_look_up = inverted ? motion > 0 : motion < 0;
+          float pitch_delta = viewPitch(camera) - initial_pitch;
+          if((should_look_up && pitch_delta <= CAMERA_EPSILON) ||
+             (!should_look_up && pitch_delta >= -CAMERA_EPSILON))
+            fail("mouse up/down moved the view in the wrong vertical direction");
+        }
+        yaw[inverted] = camera->movement[CAM_PHI];
+        radius[inverted] = camera->movement[CAM_R];
+        elevation_delta[inverted] = camera->movement[CAM_CHI] - initial_elevation;
+      }
+      expectFloat("Y inversion leaves horizontal input unchanged", yaw[0], yaw[1]);
+      expectFloat("Y inversion leaves zoom unchanged", radius[0], radius[1]);
+      expectFloat("Y inversion preserves vertical sensitivity", elevation_delta[0], -elevation_delta[1]);
+    }
+  }
+
+  prepareMovement(CAM_TYPE_MOUSE);
+  playerCamera(&test_visuals[0], &test_players[0]);
+  {
+    Camera before = test_cameras[0];
+    gSettingsCache.invert_mouse_y = 1;
+    playerCamera(&test_visuals[0], &test_players[0]);
+    expectVec3("changing inversion alone never jumps the camera", test_cameras[0].cam,
+               before.cam[0], before.cam[1], before.cam[2]);
+  }
 }
 
 static void testMovementRouting(void) {
@@ -580,12 +636,14 @@ int main(void) {
   testCoupledTurnInterpolation();
   testGlanceOffset();
   testInputFreedomAndClamping();
+  testMouseYDirection();
   testMovementRouting();
   testCameraTypeCycling();
   testPausedWallClockMovement();
 
   puts("PASS: production camera initialization and four-mode movement goldens");
   puts("PASS: coupled turn seams, glance offsets, input freedoms, and clamps");
+  puts("PASS: normal/inverted mouse Y, unchanged yaw/zoom, and live toggle without a camera jump");
   puts("PASS: live, crashed, and recognizer camera routing");
   puts("PASS: human-only camera cycling and classic console labels");
   return EXIT_SUCCESS;

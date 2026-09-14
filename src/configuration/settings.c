@@ -275,6 +275,7 @@ void updateSettingsCache(void) {
   gSettingsCache.fov = getSettingf("fov");
   gSettingsCache.znear = getSettingf("znear");
   gSettingsCache.camType = getSettingi("camType");
+  gSettingsCache.invert_mouse_y = getSettingi("invert_mouse_y");
   gSettingsCache.playEffects = getSettingi("playEffects");
   gSettingsCache.playMusic = getSettingi("playMusic");
 	gSettingsCache.map_ratio_w = getSettingf("map_ratio_w");

@@ -158,7 +158,10 @@ void playerCamera(PlayerVisual *pV, Player *p) {
     cam->movement[CAM_PHI] += - gInput.mousex * MOUSE_CX;
   }
   if(cam->type.freedom[CAM_FREE_CHI]) {
-    cam->movement[CAM_CHI] += gInput.mousey * MOUSE_CY;
+    /* Mouse Y grows downward; chi grows toward an upward-looking view.
+       Inversion restores the original GLTron mouse direction. */
+    float direction = gSettingsCache.invert_mouse_y ? 1.0f : -1.0f;
+    cam->movement[CAM_CHI] += gInput.mousey * MOUSE_CY * direction;
   }
   /* done with mouse movement, now clamp the camera to legal values */
   clampCam(cam);

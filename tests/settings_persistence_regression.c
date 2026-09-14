@@ -350,6 +350,73 @@ static void testRepeatedSaveAndReload(void) {
   free(second);
 }
 
+static int refreshMouseYSettings(lua_State *state) {
+  (void)state;
+  updateSettingsCache();
+  return 0;
+}
+
+static void loadMouseYMenu(void) {
+  static const char *scripts[] = {
+    "artpack.lua", "menu.lua", "menu_functions.lua"
+  };
+  unsigned i;
+
+  scripting_Register("c_update_settings_cache", refreshMouseYSettings);
+  for(i = 0; i < sizeof(scripts) / sizeof(scripts[0]); i++) {
+    char *path = getPath(PATH_SCRIPTS, scripts[i]);
+    checkedRunFile(path);
+    free(path);
+  }
+}
+
+static void testMouseYPreference(void) {
+  int expected;
+
+  resetLua();
+  if(getSettingi("invert_mouse_y") != 0)
+    fail("fresh configuration did not default to normal mouse Y");
+  /* A valid older profile lacks this field and overlays the current defaults. */
+  checkedRun("settings.version = 0.70; settings.camType = 3; "
+             "settings.keys[1].left = 100; save_completed = 1");
+  loadMouseYMenu();
+  updateSettingsCache();
+  if(getSettingi("invert_mouse_y") != 0 || gSettingsCache.invert_mouse_y != 0)
+    fail("older profile did not inherit normal mouse Y");
+  expectString("return Menu.InvertMouseY.parent", "GameSettingsMenu");
+  expectString("return Menu.GameSettingsMenu.items[2]", "CameraMode");
+  expectString("return Menu.GameSettingsMenu.items[3]", "InvertMouseY");
+  expectString("return Menu.InvertMouseY.caption", "Invert Mouse Y");
+  expectString("return GetMenuValueString('InvertMouseY')", "off");
+
+  for(expected = 1; expected >= 0; expected--) {
+    char *serialized;
+    size_t length;
+
+    checkedRun("MenuAction[MenuC.type.list]('InvertMouseY')");
+    if(getSettingi("invert_mouse_y") != expected ||
+       gSettingsCache.invert_mouse_y != expected)
+      fail("mouse Y menu toggle did not update settings and cache immediately");
+    expectString("return GetMenuValueString('InvertMouseY')", expected ? "on" : "off");
+    saveSettings();
+    serialized = readFile(preferences_path, &length);
+    resetLua();
+    checkedRun(serialized);
+    free(serialized);
+    loadMouseYMenu();
+    updateSettingsCache();
+    if(getSettingi("invert_mouse_y") != expected ||
+       gSettingsCache.invert_mouse_y != expected)
+      fail("mouse Y preference changed across save and reload");
+    if(getSettingi("camType") != 3 ||
+       strictIntegerResult("return settings.keys[1].left") != 100)
+      fail("mouse Y preference changed an existing camera mode or binding");
+    if(integerResult("return save_completed") != 1)
+      fail("mouse Y preferences save did not complete");
+  }
+  printf("PASS: normal mouse Y default, immediate menu toggles, and both saved states\n");
+}
+
 static void testOldTargetSurvivesFailures(void) {
   struct rlimit original_limit;
   struct rlimit blocked_limit;
@@ -425,6 +492,7 @@ int main(int argc, char **argv) {
 
   testResultHelpers();
   testRepeatedSaveAndReload();
+  testMouseYPreference();
   testOldTargetSurvivesFailures();
 
   if(scripting_active)

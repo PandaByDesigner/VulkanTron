@@ -34,6 +34,7 @@ typedef struct SettingsCache {
   int playMusic;
   int playEffects;
   int camType;
+  int invert_mouse_y;
   float znear;
   float clear_color[4];
 	float map_ratio_w, map_ratio_h;
