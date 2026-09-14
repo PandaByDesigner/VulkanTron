@@ -27,5 +27,15 @@
   "edit": "Full song duration retained. Resample to the native mixer rate, apply a constant -4.19 dB gain, and use 5 ms fades at each endpoint to prevent a click on restart. No trimming, rearrangement, compression, or generated replacement.",
   "ffmpeg_filter": "aresample=22050,volume=-4.19dB,afade=t=in:st=0:d=0.005,afade=t=out:st=133.115:d=0.005",
   "ffmpeg_version": "ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
-  "previous_theme": "music/song_obsidian_arena.wav remains available with its original provenance."
+  "previous_theme": "music/song_obsidian_arena.wav remains available with its original provenance.",
+  "credit": "Forward Pulse — contributed by PandaByDesigner; generated using Suno.",
+  "rights_provenance": {
+    "confirmation_date": "2026-09-14",
+    "basis": "Maintainer confirmation in the project conversation; not an independent account audit.",
+    "creation_plan": "Paid Suno Pro/Premier",
+    "official_download_while_paid": true,
+    "human_contribution_reported": "Mainly generated from a prompt",
+    "inclusion": "Maintainer requested inclusion as the Obsidian theme and publication with VulkanTron.",
+    "notice": "music/obsidian/FORWARD_PULSE_NOTICE.md"
+  }
 }

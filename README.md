@@ -6,11 +6,15 @@
 Version **0.3.0** introduces **Obsidian**: a dark arena with luminous cycle
 silhouettes, cyan and amber architecture, new energy trails and impacts,
 approximate floor reflections, and bloom confined to each player's view.
-Its theme is the user-provided **Forward Pulse**. The original **Obsidian Circuit**
+Its theme is **Forward Pulse**, contributed by PandaByDesigner and generated
+using Suno; see the [track credit and inclusion notice](music/obsidian/FORWARD_PULSE_NOTICE.md).
+The original **Obsidian Circuit**
 YuE2 study remains selectable; the engine, boost and crash sounds are newly
 synthesized.
 
 ![Obsidian arena in the installed VulkanTron game](docs/images/obsidian-arena.png)
+
+*Obsidian in VulkanTron 0.3.0, captured from the running game.*
 
 VulkanTron retains the original game rules, AI, controls, menus, cameras, and
 local multiplayer layouts. Classic and faithful artpacks remain selectable,
@@ -25,7 +29,7 @@ initial simplified Vulkan arena is now a separate development tool,
 Version **0.2.0** completed the faithful full-game port on the tested Linux
 system. Its native OpenGL/Vulkan comparison covered original and faithful
 artpacks, with documented coplanar depth differences in three explosion
-fixtures. The **0.3.0 Obsidian release passed 21 Release and 21 sanitizer tests,
+fixtures. The **0.3.0 Obsidian build passed 21 Release and 21 sanitizer tests,
 native X11/Wayland arena captures, and installed gameplay/audio checks**.
 The original artpack also passed the strict 39-scene renderer comparison.
 Audio files pass technical checks; a subjective listening review has not been
@@ -203,8 +207,12 @@ fan project; no official TRON affiliation is claimed. Renderer work does not
 transfer ownership of the original game's assets.
 
 Obsidian's authored visuals have their own [asset record](art/obsidian/manifest.json).
-The [audio notes](docs/OBSIDIAN_AUDIO.md) document the user-provided Forward Pulse
-theme and preserve the earlier Obsidian Circuit prompt, seed, render settings,
+**Forward Pulse** is contributed by PandaByDesigner and generated using Suno.
+Its [inclusion notice](music/obsidian/FORWARD_PULSE_NOTICE.md) is separate from
+the program's GPL license and records the maintainer's paid-plan download
+confirmation without claiming exclusive copyright in AI-generated audio.
+The [audio notes](docs/OBSIDIAN_AUDIO.md) document the Forward Pulse theme and
+preserve the earlier Obsidian Circuit prompt, seed, render settings,
 synthesis method, hashes, and technical review limits. The installed YuE2 model
 card identifies its weights as CC BY-NC 4.0; that metadata relates to the earlier
 study's model, separately from Forward Pulse and the original game's asset credits.

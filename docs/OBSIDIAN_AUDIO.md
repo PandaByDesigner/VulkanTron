@@ -1,6 +1,7 @@
 # Obsidian audio
 
-The Obsidian arena's current theme is **Forward Pulse**, supplied by the user.
+The Obsidian arena's current theme is **Forward Pulse**, contributed by
+PandaByDesigner and generated using Suno.
 The earlier **Obsidian Circuit** electronic study remains selectable, alongside
 four original procedurally synthesized effects. The earlier study and effects
 use no audio samples or reference recordings from the films, their soundtracks,
@@ -18,6 +19,11 @@ or another game. Their YuE2 provenance does not describe the supplied theme.
 | `data/obsidian/game_crash.wav` | 1.25-second impact and debris cue | 22050 Hz mono, signed 16-bit PCM WAV |
 
 ## Current theme: Forward Pulse
+
+The [track credit and inclusion notice](../music/obsidian/FORWARD_PULSE_NOTICE.md)
+records the maintainer's confirmation of paid-plan creation and an official
+paid-plan download. The recording is documented separately from the program's
+GPL license; no exclusive copyright in AI-generated audio is claimed.
 
 The supplied master is `/home/pandabydsgn/Music/Forward Pulse.wav`, a
 133.12-second, 48000 Hz stereo PCM16 file. A separate runtime conversion is

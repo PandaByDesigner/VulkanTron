@@ -33,6 +33,9 @@ tools/install_vulkantron_launcher.py, a fresh app profile selects Obsidian.
 The optional --select-obsidian installer flag backs up an existing VulkanTron
 profile and changes only its bundled artpack/music selections.
 
+Forward Pulse is contributed by PandaByDesigner and generated using Suno.
+music/obsidian/FORWARD_PULSE_NOTICE.md records its separate inclusion notice.
+
 COPYING contains the game license. licenses/LUA-COPYRIGHT.txt contains the
 bundled Lua notice. The included documentation records provenance, architecture,
 verification results and platform limits. OBSIDIAN_AUDIO.md distinguishes the
