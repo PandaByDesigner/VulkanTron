@@ -6,11 +6,6 @@
 Version **0.3.0** introduces **Obsidian**: a dark arena with luminous cycle
 silhouettes, cyan and amber architecture, new energy trails and impacts,
 approximate floor reflections, and bloom confined to each player's view.
-Its theme is **Forward Pulse**, contributed by PandaByDesigner and generated
-using Suno; see the [track credit and inclusion notice](music/obsidian/FORWARD_PULSE_NOTICE.md).
-The original **Obsidian Circuit**
-YuE2 study remains selectable; the engine, boost and crash sounds are newly
-synthesized.
 
 ![Obsidian arena in the installed VulkanTron game](docs/images/obsidian-arena.png)
 
@@ -32,9 +27,8 @@ artpacks, with documented coplanar depth differences in three explosion
 fixtures. The **0.3.0 Obsidian build passed 21 Release and 21 sanitizer tests,
 native X11/Wayland arena captures, and installed gameplay/audio checks**.
 The original artpack also passed the strict 39-scene renderer comparison.
-Audio files pass technical checks; a subjective listening review has not been
-recorded. Obsidian's reflection treatment is an
-artistic approximation, and its bloom is limited to the game views.
+Obsidian's reflection treatment is an artistic approximation, and its bloom
+is limited to the game views.
 See the [renderer architecture](docs/VULKANTRON_RENDERER.md),
 [development plan](docs/VULKANTRON_PLAN.md), and
 [faithful verification](docs/VULKANTRON_VERIFICATION.md) and
@@ -111,7 +105,7 @@ The installer requires Python 3.11 or newer and `desktop-file-validate`. It
 installs under `~/.local/opt/vulkantron`, adds `~/.local/bin/vulkantron`, and
 creates the **VulkanTron** application entry with its own icon. It verifies
 installed content and preserves previous versions. A fresh launcher profile
-selects Obsidian and `song_forward_pulse.wav`. `--select-obsidian` also selects
+selects Obsidian and its default soundtrack. `--select-obsidian` also selects
 these in an existing VulkanTron profile: it first saves a timestamped
 `.gltronrc.pre-obsidian-*.bak` beside the profile, then atomically appends only
 the artpack and soundtrack choices. Existing controls and other settings are
@@ -196,8 +190,8 @@ menus and original presentation live in `vulkantron`.
 ## Credits and license
 
 GLTron was created by Andreas Umbach and its original contributors. Original
-artwork, models, fonts, and audio retain their authorship. **Revenge of Cats**
-is copyright Peter Hajba (Skaven). See [asset provenance](docs/ASSET_PROVENANCE.md),
+artwork, models, fonts, and audio retain their authorship. See
+[asset provenance](docs/ASSET_PROVENANCE.md),
 the original [README](README), and the retained in-game credits.
 
 The program is distributed under the GNU General Public License, version 2 or
@@ -207,12 +201,3 @@ fan project; no official TRON affiliation is claimed. Renderer work does not
 transfer ownership of the original game's assets.
 
 Obsidian's authored visuals have their own [asset record](art/obsidian/manifest.json).
-**Forward Pulse** is contributed by PandaByDesigner and generated using Suno.
-Its [inclusion notice](music/obsidian/FORWARD_PULSE_NOTICE.md) is separate from
-the program's GPL license and records the maintainer's paid-plan download
-confirmation without claiming exclusive copyright in AI-generated audio.
-The [audio notes](docs/OBSIDIAN_AUDIO.md) document the Forward Pulse theme and
-preserve the earlier Obsidian Circuit prompt, seed, render settings,
-synthesis method, hashes, and technical review limits. The installed YuE2 model
-card identifies its weights as CC BY-NC 4.0; that metadata relates to the earlier
-study's model, separately from Forward Pulse and the original game's asset credits.
