@@ -92,7 +92,8 @@ menus, Space to pause, Escape to return through menus, and F10 to cycle cameras.
 F1/F2/F3/F4 select single, stacked, four-way, or automatic views. Player count
 and all bindings remain configurable through the original menus.
 Mouse Y uses normal direction by default. **Game > Play Settings > Invert Mouse Y**
-switches to the original inverted direction immediately; F5 saves the choice.
+switches to the original inverted direction immediately. Quit through the main
+menu to save the choice, or press F5 while playing or paused.
 
 ## App-menu installation and preferences
 
