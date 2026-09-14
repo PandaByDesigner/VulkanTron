@@ -67,7 +67,7 @@ set(CPACK_SOURCE_IGNORE_FILES
   "[.]tar[.]gz$" "[.]tar[.]gz[.]sha256$" "/gltron$")
 if(TARGET vulkantron)
   set(CPACK_PACKAGE_NAME vulkantron)
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Obsidian lightcycle arena with original music and direct Vulkan rendering")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Obsidian lightcycle arena with Forward Pulse music and direct Vulkan rendering")
   set(CPACK_PACKAGE_VERSION "${VULKANTRON_VERSION}")
   set(CPACK_PACKAGE_FILE_NAME "vulkantron-${VULKANTRON_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
   if(NOT GLTRON_ENABLE_AUDIO)

@@ -6,8 +6,9 @@
 Version **0.3.0** introduces **Obsidian**: a dark arena with luminous cycle
 silhouettes, cyan and amber architecture, new energy trails and impacts,
 approximate floor reflections, and bloom confined to each player's view.
-Its original **Obsidian Circuit** soundtrack was generated locally with YuE2;
-the engine, boost and crash sounds are newly synthesized.
+Its theme is the user-provided **Forward Pulse**. The original **Obsidian Circuit**
+YuE2 study remains selectable; the engine, boost and crash sounds are newly
+synthesized.
 
 ![Obsidian arena in the installed VulkanTron game](docs/images/obsidian-arena.png)
 
@@ -103,7 +104,7 @@ The installer requires Python 3.11 or newer and `desktop-file-validate`. It
 installs under `~/.local/opt/vulkantron`, adds `~/.local/bin/vulkantron`, and
 creates the **VulkanTron** application entry with its own icon. It verifies
 installed content and preserves previous versions. A fresh launcher profile
-selects Obsidian and `song_obsidian_arena.wav`. `--select-obsidian` also selects
+selects Obsidian and `song_forward_pulse.wav`. `--select-obsidian` also selects
 these in an existing VulkanTron profile: it first saves a timestamped
 `.gltronrc.pre-obsidian-*.bak` beside the profile, then atomically appends only
 the artpack and soundtrack choices. Existing controls and other settings are
@@ -199,7 +200,8 @@ fan project; no official TRON affiliation is claimed. Renderer work does not
 transfer ownership of the original game's assets.
 
 Obsidian's authored visuals have their own [asset record](art/obsidian/manifest.json).
-The [audio notes](docs/OBSIDIAN_AUDIO.md) preserve the original prompt, seed,
-render settings, synthesis method, hashes, and technical review limits.
-The installed YuE2 model card identifies its weights as CC BY-NC 4.0; those
-notes record model metadata separately from the original game's asset credits.
+The [audio notes](docs/OBSIDIAN_AUDIO.md) document the user-provided Forward Pulse
+theme and preserve the earlier Obsidian Circuit prompt, seed, render settings,
+synthesis method, hashes, and technical review limits. The installed YuE2 model
+card identifies its weights as CC BY-NC 4.0; that metadata relates to the earlier
+study's model, separately from Forward Pulse and the original game's asset credits.

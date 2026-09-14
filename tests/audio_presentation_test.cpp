@@ -45,7 +45,7 @@ extern "C" {
       Audio_LoadSample(const_cast<char*>(path.c_str()), i);
     }
     Audio_LoadPlayers();
-    std::string path = std::string(asset_root) + "/music/song_obsidian_arena.wav";
+    std::string path = std::string(asset_root) + "/music/song_forward_pulse.wav";
     Audio_LoadMusic(const_cast<char*>(path.c_str()));
     assert(music != NULL && music->GetLoop() == 255);
     Audio_PlayMusic();
@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
   const int saved_decoder_ready = decoder_ready;
   decoder_ready = 0;
   Sound::SourceMusic *previous_music = music;
-  std::string path = std::string(asset_root) + "/music/song_obsidian_arena.wav";
+  std::string path = std::string(asset_root) + "/music/song_forward_pulse.wav";
   Audio_LoadMusic(const_cast<char*>(path.c_str()));
   assert(music != NULL && music != previous_music);
   decoder_ready = saved_decoder_ready;

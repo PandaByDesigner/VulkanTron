@@ -13,8 +13,9 @@ Drivers and system shared libraries are not bundled. --validation additionally
 requires the Khronos validation layer.
 
 Obsidian adds a dark luminous arena, newly authored cycle models and textures,
-approximate floor reflections, bloom confined to each player view, original
-YuE2 music, and synthesized engine/boost/impact effects. Reflections are an
+approximate floor reflections, bloom confined to each player view, the
+user-provided Forward Pulse theme, and synthesized engine/boost/impact effects.
+The earlier Obsidian Circuit YuE2 study remains selectable. Reflections are an
 artistic approximation. The original game rules, AI, controls, cameras and
 local multiplayer layouts remain shared with the faithful port. Classic and
 faithful artpacks, original music, and custom controls remain menu selections.
@@ -34,9 +35,10 @@ profile and changes only its bundled artpack/music selections.
 
 COPYING contains the game license. licenses/LUA-COPYRIGHT.txt contains the
 bundled Lua notice. The included documentation records provenance, architecture,
-verification results and platform limits. OBSIDIAN_AUDIO.md documents prompts,
-seeds, source preservation, file checks and the absence of a listening review.
-The installed YuE2 model card identifies its weights as CC BY-NC 4.0; the audio
-notes record this separately from the game and original asset licenses.
+verification results and platform limits. OBSIDIAN_AUDIO.md distinguishes the
+supplied theme from the earlier YuE2 prompts, seeds and source preservation,
+and records file checks and the absence of a listening review. The installed
+YuE2 model card identifies its weights as CC BY-NC 4.0; this relates to the
+earlier study's model, separately from Forward Pulse and the game asset licenses.
 This remains an independent project;
 the original GLTron contributors retain their authorship and asset credits.

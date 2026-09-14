@@ -15,7 +15,8 @@ verification report.
 
 The user has accepted the next phase: **0.3.0 Obsidian**, a cinematic,
 TRON: Legacy-inspired lightcycle arena using newly authored visual assets,
-original local YuE2 music, and designed effects. This expands presentation
+the user-provided Forward Pulse theme, and designed effects. The earlier local
+YuE2 study remains available. This expands presentation
 while retaining the shared game rules, physics, AI, original controls and
 local multiplayer topology. Classic and faithful artpacks remain selectable.
 
@@ -31,11 +32,13 @@ new cycle silhouettes, readable energy trails, brighter impacts, and restrained
 screen effects. Floor reflections are an artistic approximation. Bloom is
 confined to each player's rendered view so the menus and HUD stay legible.
 
-Its soundtrack is the original **Obsidian Circuit** local YuE2 study, edited to
-a roughly 54-second loop. Newly synthesized cycle drive, boost, crash and
-ambient-vehicle effects accompany it. The [audio production record](OBSIDIAN_AUDIO.md)
-keeps the request, seed, source hash, processing, raw preservation path and
-technical validation. A subjective listening review has not been recorded.
+Its current theme is the user-provided **Forward Pulse**, a 133.12-second song
+converted for the game's mixer. The earlier **Obsidian Circuit** local YuE2 study
+remains selectable as a roughly 54-second loop. Newly synthesized cycle drive,
+boost, crash and ambient-vehicle effects accompany the music. The
+[audio production record](OBSIDIAN_AUDIO.md) distinguishes the supplied song
+from the retained YuE2 request, seed, processing and raw source. A subjective
+listening review has not been recorded.
 
 Fresh app-menu profiles select Obsidian. Existing VulkanTron profiles can
 adopt its bundled artpack and track through `--select-obsidian` on the installer,

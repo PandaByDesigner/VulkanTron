@@ -70,7 +70,7 @@ void initConfiguration(int argc, const char *argv[])
   {
     const char *presentation = getenv("VULKANTRON_PRESENTATION");
     if(presentation != NULL && strcmp(presentation, "obsidian") == 0)
-      scripting_Run("settings.current_artpack = 'obsidian'; settings.current_track = 'song_obsidian_arena.wav'");
+      scripting_Run("settings.current_artpack = 'obsidian'; settings.current_track = 'song_forward_pulse.wav'");
   }
 #endif
 

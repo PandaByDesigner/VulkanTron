@@ -1,0 +1,31 @@
+{
+  "title": "Forward Pulse",
+  "role": "Default Obsidian theme selected by the user",
+  "source": {
+    "path": "/home/pandabydsgn/Music/Forward Pulse.wav",
+    "sha256": "920f2845af69b60d5f106bd66babd2e9d1471e5d4865733189bee7733361fcf3",
+    "duration_seconds": 133.12,
+    "sample_rate": 48000,
+    "channels": 2,
+    "format": "signed 16-bit PCM WAV",
+    "embedded_comment": "made with suno; created=2026-09-14T07:01:53Z; id=296b677b-4ea8-41de-99a9-32d7e69ccdee",
+    "attribution_note": "User-provided recording; embedded generation metadata is recorded as supplied, not independently verified."
+  },
+  "file": "music/song_forward_pulse.wav",
+  "sha256": "efabfe668ac882af9733632f6ba690f1399dd42e4c938be0a29f8b1b10919d0a",
+  "duration_seconds": 133.12,
+  "sample_rate": 22050,
+  "channels": 2,
+  "format": "signed 16-bit little-endian PCM WAV",
+  "frames": 2935296,
+  "gain_db": -4.19,
+  "integrated_lufs": -20.04,
+  "true_peak_dbfs": -7.12,
+  "sample_peak_dbfs": -7.235139899023349,
+  "clipped_samples": 0,
+  "loop_boundary_step_pcm": 3,
+  "edit": "Full song duration retained. Resample to the native mixer rate, apply a constant -4.19 dB gain, and use 5 ms fades at each endpoint to prevent a click on restart. No trimming, rearrangement, compression, or generated replacement.",
+  "ffmpeg_filter": "aresample=22050,volume=-4.19dB,afade=t=in:st=0:d=0.005,afade=t=out:st=133.115:d=0.005",
+  "ffmpeg_version": "ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "previous_theme": "music/song_obsidian_arena.wav remains available with its original provenance."
+}

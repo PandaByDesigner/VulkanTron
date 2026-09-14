@@ -1,18 +1,41 @@
-# Obsidian Circuit audio
+# Obsidian audio
 
-The Obsidian arena has an original electronic music study and four original
-procedurally synthesized effects. The production uses no audio samples or
-reference recordings from the films, their soundtracks, or another game.
+The Obsidian arena's current theme is **Forward Pulse**, supplied by the user.
+The earlier **Obsidian Circuit** electronic study remains selectable, alongside
+four original procedurally synthesized effects. The earlier study and effects
+use no audio samples or reference recordings from the films, their soundtracks,
+or another game. Their YuE2 provenance does not describe the supplied theme.
 
 ## Runtime assets
 
 | Asset | Purpose | Format |
 | --- | --- | --- |
-| `music/song_obsidian_arena.wav` | 53.999-second Obsidian Circuit arena music loop | 22050 Hz stereo, signed 16-bit PCM WAV |
+| `music/song_forward_pulse.wav` | Current theme: 133.12-second Forward Pulse | 22050 Hz stereo, signed 16-bit PCM WAV |
+| `music/song_obsidian_arena.wav` | Retained 53.999-second Obsidian Circuit music loop | 22050 Hz stereo, signed 16-bit PCM WAV |
 | `data/obsidian/game_engine.wav` | 2-second electric cycle drive loop | 22050 Hz mono, signed 16-bit PCM WAV |
 | `data/obsidian/game_recognizer.wav` | 4-second distant vehicle hum loop | 22050 Hz mono, signed 16-bit PCM WAV |
 | `data/obsidian/game_boost.wav` | 0.62-second thrust activation cue | 22050 Hz mono, signed 16-bit PCM WAV |
 | `data/obsidian/game_crash.wav` | 1.25-second impact and debris cue | 22050 Hz mono, signed 16-bit PCM WAV |
+
+## Current theme: Forward Pulse
+
+The supplied master is `/home/pandabydsgn/Music/Forward Pulse.wav`, a
+133.12-second, 48000 Hz stereo PCM16 file. A separate runtime conversion is
+bundled as `music/song_forward_pulse.wav`; the supplied master and original
+YuE2 music are retained. The conversion preserves the full song, resamples to
+22050 Hz, applies a constant -4.19 dB gain, and fades only the first and last
+5 milliseconds to soften the repeat boundary. It measures -20.04 LUFS and
+-7.12 dBTP with no clipped samples. The game's existing player repeats the song.
+The source and runtime hashes, conversion, and technical checks are recorded
+separately in `music/obsidian/forward_pulse.json`.
+
+Fresh launcher profiles and the game's `--obsidian` session option select
+Forward Pulse. The installer's `--select-obsidian` flag updates an existing
+VulkanTron profile's artpack and track selections after saving its original
+bytes. Other preferences remain intact. The original GLTron tracker song and
+Obsidian Circuit remain available in the music menu.
+
+## Synthesized effects
 
 The engine's harmonic frequencies fit the loop period exactly. Its subtle air
 layer uses periodic filtered noise. The recognizer hum is also periodic. Both
@@ -21,9 +44,11 @@ Boost and crash use short, zero-ended envelopes. These sounds are designed to
 leave room for positional mixing and the engine pitch changes already applied
 by the game.
 
-The final music measures -20.0 LUFS and -5.8 dBFS sample peak, with no clipped
-samples. Its boundary step is 0.0162 full scale, below the track's 99th-percentile
-ordinary sample step of 0.0824. The 59.999-second raw render took 369.2 seconds
+## Retained YuE2 study: Obsidian Circuit
+
+The finished Obsidian Circuit study measures -20.0 LUFS and -5.8 dBFS sample
+peak, with no clipped samples. Its boundary step is 0.0162 full scale, below the
+track's 99th-percentile ordinary sample step of 0.0824. The 59.999-second raw render took 369.2 seconds
 in the YuE2 runtime on this machine. It touched full scale on two of 5,759,872
 PCM samples; this is retained in the raw-source receipt. The delivered mix
 has zero full-scale samples and ample headroom.
@@ -36,7 +61,7 @@ meter, instrumentation, or vocal exclusions. The render uses the locally
 installed YuE2 model; the SFX use mathematical synthesis because this installed
 YuE2 route is intended for music.
 
-## Reproduction
+### Reproduction of Obsidian Circuit and effects
 
 Run from this checkout with Python 3, NumPy, and FFmpeg installed. No script
 downloads dependencies or model weights.
@@ -74,13 +99,14 @@ boundary checks. `generation.json` records the source request, binary hash,
 command, elapsed generation time, and raw output hash. `track.json` records
 the finished music's hash, duration, level, seam, and exact edit.
 
-## Source preservation and review
+### Obsidian Circuit source preservation and review
 
-The unedited first render, generation log, request, and receipt are retained in
-the installed Music project's durable output directory:
+The initial release recorded preservation of the unedited first render,
+generation log, request, and receipt in the Music project's output directory:
 `/run/media/pandabydsgn/1AA2C91BA2C8FBEF/Users/jumpe/Documents/ChatGPT/Music/outputs/vulkantron-obsidian-20260913/`.
 All four files were copied from the temporary generation directory and their
-SHA-256 hashes verified. The shipped finished WAV and its provenance remain
+SHA-256 hashes verified at that time. That original location is unavailable
+in the current environment. The shipped finished WAV and its provenance remain
 in the repository. Generative output can differ on another runtime or hardware
 even with the same seed; retained audio hashes identify the exact render.
 

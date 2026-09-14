@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER = "Managed VulkanTron launcher"
 OBSIDIAN_SELECTION = (b'\n-- VulkanTron bundled Obsidian presentation\n'
                       b'settings.current_artpack = "obsidian"\n'
-                      b'settings.current_track = "song_obsidian_arena.wav"\n')
+                      b'settings.current_track = "song_forward_pulse.wav"\n')
 
 
 def configuration_directory():
@@ -163,7 +163,7 @@ def main():
         subprocess.run(["cmake", "--install", str(build), "--prefix", str(staged)], check=True)
         if digest(staged / "bin/vulkantron") != executable_hash:
             raise RuntimeError("Installed executable does not match the tested build")
-        for asset in ("art/obsidian/artpack.lua", "music/song_obsidian_arena.wav"):
+        for asset in ("art/obsidian/artpack.lua", "music/song_forward_pulse.wav"):
             if not (staged / "share/gltron" / asset).is_file():
                 raise RuntimeError(f"Obsidian launch assets are missing from the staged package: {asset}")
         # Shader-only changes need a new installation too, even if the linked
@@ -210,7 +210,7 @@ mkdir -p "$VULKANTRON_CONFIG_DIR"
 if [ ! -e "$VULKANTRON_CONFIG_DIR/.gltronrc" ]; then
   seed=$(mktemp "$VULKANTRON_CONFIG_DIR/.gltronrc.XXXXXX")
   trap 'rm -f "$seed"' EXIT HUP INT TERM
-  printf 'settings.version = 0.70\\nsettings.current_artpack = "obsidian"\\nsettings.current_track = "song_obsidian_arena.wav"\\nsave_completed = 1\\n' > "$seed"
+  printf 'settings.version = 0.70\\nsettings.current_artpack = "obsidian"\\nsettings.current_track = "song_forward_pulse.wav"\\nsave_completed = 1\\n' > "$seed"
   if ! ln "$seed" "$VULKANTRON_CONFIG_DIR/.gltronrc" 2>/dev/null; then
     test -f "$VULKANTRON_CONFIG_DIR/.gltronrc"
   fi
@@ -226,7 +226,7 @@ Type=Application
 Version=1.0
 Name=VulkanTron
 GenericName=Lightcycle game
-Comment=Obsidian lightcycle arena with original music and direct Vulkan rendering
+Comment=Obsidian lightcycle arena with Forward Pulse music and direct Vulkan rendering
 Exec={desktop_argument(shutil.which("sh"))} {desktop_argument(wrapper)}
 TryExec={desktop_value(wrapper)}
 Icon={desktop_value(icon)}
