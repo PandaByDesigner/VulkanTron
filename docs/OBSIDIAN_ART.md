@@ -53,7 +53,8 @@ settings. The faithful path does not execute these branches.
 - `gamegraphics.c`: emissive material groups, shortened dim cycle/trail
   reflections, and 48 deterministic crash shards. Shards use visual animation
   time and never consume the simulation's random stream. The original flying
-  recognizer is omitted in this arena presentation.
+  recognizer and its projected floor shadow follow the existing Recognizers
+  setting, using the same flight path as the classic artpacks.
 - `trail_render.c`: player-colored, unlit trail masks with clear edges.
 - `graphics_fx.c` and `explosion.c`: restrained cycle glow and cool impact waves.
 - `visuals_2d.c` and `graphics_hud.c`: a dark translucent minimap, cyan border,

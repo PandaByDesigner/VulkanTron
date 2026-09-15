@@ -40,7 +40,8 @@ EXPECTED_SCENES = {
     "menu-root", "menu-game", "menu-video", "menu-details", "menu-audio",
     "menu-keys", "configure-key", "font-glyphs", "credits", "single", "split",
     "fourway", "pause-single", "pause-split", "pause-fourway", "camera-circling",
-    "camera-follow", "camera-cockpit", "camera-mouse", "ai-hud", "recognizer", "effects-stencil",
+    "camera-follow", "camera-cockpit", "camera-mouse", "ai-hud", "recognizer",
+    "recognizer-hidden", "recognizer-restored", "effects-stencil",
     "effects-shadows-simple", "effects-transparent-trails", "floor-grid-fog",
     "crash-early", "crash-late", "winner", "draw-result", "trail-155", "trail-243",
     "trail-999", "trail-2005", "artpack-alternate", "artpack-restored", "resized-odd",
@@ -195,6 +196,10 @@ def run_fixture(executable, artpack, directory, assets, driver, vulkan):
         raise RuntimeError(f"{directory.name}: native fixture failed ({result.returncode}); inspect {log_path}")
     if not re.search(rf"FAITHFUL_SMOKE_OK captures={len(EXPECTED_SCENES)} settings_roundtrips=2", output):
         raise RuntimeError(f"{directory.name}: missing completion evidence; inspect {log_path}")
+    recognizer = re.search(
+        r"FAITHFUL_RECOGNIZER_VISIBILITY changed_pixels=(\d+) pixels=(\d+) restored_exact=1", output)
+    if not recognizer or int(recognizer[1]) < max(1, int(recognizer[2]) // 1000):
+        raise RuntimeError(f"{directory.name}: missing recognizer visibility/restoration evidence")
     lifecycle = re.search(r"minimize_supported=(\d) visibility_fallback=(\d)", output)
     if not lifecycle or lifecycle.groups() not in (("1", "0"), ("0", "1")):
         raise RuntimeError(f"{directory.name}: missing native visibility lifecycle result")

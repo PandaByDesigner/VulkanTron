@@ -433,9 +433,26 @@ static void clusteredPlayers(void) {
   frames(8);
 }
 
+static unsigned char *captureRGB(size_t *size) {
+  png_image image;
+  unsigned char *pixels;
+  memset(&image, 0, sizeof(image));
+  image.version = PNG_IMAGE_VERSION;
+  assert(png_image_begin_read_from_file(&image, capture_path));
+  image.format = PNG_FORMAT_RGB;
+  *size = PNG_IMAGE_SIZE(image);
+  pixels = malloc(*size);
+  assert(pixels && png_image_finish_read(&image, NULL, pixels, 0, NULL));
+  png_image_free(&image);
+  return pixels;
+}
+
 static void recognizerScene(void) {
   vec2 position, velocity;
   Camera *camera;
+  unsigned char *visible, *hidden, *restored;
+  size_t visible_size, hidden_size, restored_size, pixel, changed = 0;
+  uint64_t gameplay;
   resetRound(0, CAM_FOLLOW, 1);
   getRecognizerPositionVelocity(&position, &velocity);
   camera = game->player[0].camera;
@@ -449,7 +466,33 @@ static void recognizerScene(void) {
   camera->target[2] = RECOGNIZER_HEIGHT * .5f;
   assert(gSettingsCache.show_recognizer && gSettingsCache.use_stencil);
   setCallback("pause");
+  gameplay = stateHash(0);
   captureScene("recognizer", "effects");
+  visible = captureRGB(&visible_size);
+  setSettingi("show_recognizer", 0); updateSettingsCache();
+  assert(!gSettingsCache.show_recognizer);
+  captureScene("recognizer-hidden", "effects");
+  hidden = captureRGB(&hidden_size);
+  assert(visible_size == hidden_size);
+  for(pixel = 0; pixel < visible_size; pixel += 3) {
+    if(abs((int)visible[pixel] - hidden[pixel]) > 16 ||
+       abs((int)visible[pixel + 1] - hidden[pixel + 1]) > 16 ||
+       abs((int)visible[pixel + 2] - hidden[pixel + 2]) > 16)
+      changed++;
+  }
+  /* A loaded model and an enabled setting do not prove it was drawn. Require
+   * a visible footprint in the decoded image, with no simulation advancing. */
+  assert(changed >= visible_size / 3 / 1000 && changed > 0);
+  setSettingi("show_recognizer", 1); updateSettingsCache();
+  assert(gSettingsCache.show_recognizer);
+  captureScene("recognizer-restored", "effects");
+  restored = captureRGB(&restored_size);
+  assert(restored_size == visible_size &&
+         memcmp(visible, restored, visible_size) == 0);
+  assert(stateHash(0) == gameplay);
+  printf("FAITHFUL_RECOGNIZER_VISIBILITY changed_pixels=%zu pixels=%zu restored_exact=1\n",
+         changed, visible_size / 3);
+  free(visible); free(hidden); free(restored);
 }
 
 static void longTrail(int segments) {
@@ -689,7 +732,7 @@ int main(int argc, char **argv) {
     assert(getSettingi("faithful_roundtrip") == i + 71);
     free(path);
   }
-  assert(capture_count == 39);
+  assert(capture_count == 41);
   assert(fclose(manifest) == 0);
   shutdownDisplay(gScreen);
 #ifdef GLTRON_DIRECT_VULKAN

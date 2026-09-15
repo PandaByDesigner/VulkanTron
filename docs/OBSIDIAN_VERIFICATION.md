@@ -63,6 +63,32 @@ GCC 16.2.1. This is the first original arena presentation in the complete
   profiles, repeat installation, XDG resolution, and original-profile and
   unrelated-launcher protection were checked.
 
+## Recognizer restoration — September 15, 2026
+
+Obsidian now draws the original recognizer and its projected floor shadow when
+**Video → Detail Options → Recognizers** is enabled. The previous arena-specific
+draw exclusions hid both even with that setting enabled. Its flight path,
+height, original mesh and materials, sound, and observer-camera behavior remain
+shared with the classic artpacks. The reflection pass leaves depth tests and
+writes disabled for projected floor shadows; opaque-world drawing restores both.
+
+- All 21 Release CTests and the comparison-policy self-test passed.
+- Native Vulkan/X11 fixtures passed all 41 scenes for Obsidian and all 41 for
+  the classic artpack on the GeForce GTX 1660, with zero Vulkan/adapter errors.
+- The expanded recognizer fixture freezes the simulation and camera, captures
+  enabled/disabled/restored states, and compares decoded RGB pixels. Disabling
+  it changed 142,167 of 7,781,184 pixels in Obsidian and 147,336 in classic;
+  enabling it again restored exactly the original pixels and gameplay state.
+- Before/after visual inspection confirmed the mesh and floor shadow in
+  Obsidian. The image below uses the fixture's elevated inspection camera.
+
+![Restored recognizer and its shadow in the Obsidian arena](images/obsidian-recognizer.png)
+
+These follow-up runs cover Release Vulkan on X11. The broader sanitizer and
+OpenGL comparison results above remain the earlier recorded verification.
+Detailed follow-up logs, captures, and `verification.json` are in
+`/tmp/vulkantron-recognizer-20260915-6xjc7fvx/`.
+
 ## Reproduction
 
 ```sh

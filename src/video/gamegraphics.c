@@ -492,8 +492,8 @@ static void drawObsidianReflections(Player *eye) {
     }
   }
   glDisable(GL_BLEND);
-  glDepthMask(GL_TRUE);
-  glEnable(GL_DEPTH_TEST);
+  /* The projected shadows still belong to the floor pass. Leave depth tests
+   * and writes disabled until drawCam starts drawing opaque world geometry. */
 }
 
 void drawCam(Player *p, PlayerVisual* pV) {
@@ -548,7 +548,7 @@ void drawCam(Player *p, PlayerVisual* pV) {
     drawObsidianReflections(p);
 
   /* shadows on the floor: cycle, recognizer, trails */
-  if (gSettingsCache.show_recognizer && !gSettingsCache.obsidian_arena) {
+  if (gSettingsCache.show_recognizer) {
     drawRecognizerShadow();
   }
 
@@ -568,8 +568,7 @@ void drawCam(Player *p, PlayerVisual* pV) {
   glDepthMask(GL_TRUE);
   glEnable(GL_DEPTH_TEST);
 
-  if (gSettingsCache.show_recognizer && !gSettingsCache.obsidian_arena &&
-      p->data->speed != SPEED_GONE) {
+  if (gSettingsCache.show_recognizer && p->data->speed != SPEED_GONE) {
     drawRecognizer();
   }
 
